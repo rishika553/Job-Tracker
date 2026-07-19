@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Outfit", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brand-50: #fbfbfa;
+  --color-brand-100: #f5f5f4;
+  --color-brand-200: #e7e5e4;
+  --color-brand-300: #d6d3d1;
+  --color-brand-400: #a8a29e;
+  --color-brand-500: #78716c;
+  --color-brand-600: #57534e;
+  --color-brand-700: #44403c;
+  --color-brand-800: #292524;
+  --color-brand-900: #1c1917;
+  --color-brand-950: #0c0a09;
+  
+  /* Primary Action: Warm Yellow Accent */
+  --color-primary-50: #fefdf0;
+  --color-primary-100: #fef9c3;
+  --color-primary-500: #facc15; /* Bright Yellow */
+  --color-primary-600: #eab308; /* Warm Amber */
+  --color-primary-700: #ca8a04;
+  
+  /* Custom shadows */
+  --shadow-premium: 0 1px 2px 0 rgba(0, 0, 0, 0.02), 0 4px 12px 0 rgba(0, 0, 0, 0.03);
+  --shadow-premium-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.02), 0 4px 20px 0 rgba(0, 0, 0, 0.04);
+  --shadow-overlay: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.04), 0 24px 48px -12px rgba(0, 0, 0, 0.08);
+}
+
+@layer base {
+  body {
+    background-color: #fbfbfa; /* Warm Off-White base */
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(250, 204, 21, 0.04) 0px, transparent 40%),
+      radial-gradient(at 100% 0%, rgba(12, 10, 9, 0.015) 0px, transparent 45%),
+      radial-gradient(circle, rgba(120, 113, 108, 0.07) 1.2px, transparent 1.2px);
+    background-size: 100% 100%, 100% 100%, 28px 28px;
+    background-attachment: fixed;
+    color: #0c0a09; /* Deep Obsidian Black text */
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.011em;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e7e5e4;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d6d3d1;
+}
+
+/* Micro-animations and hover effects */
+.hover-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.glow-yellow-hover:hover {
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.2);
+}
