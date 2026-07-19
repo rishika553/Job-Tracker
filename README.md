@@ -1,144 +1,286 @@
-🚀 Job-Tracker
-An AI-powered Job Application Tracking Platform that helps job seekers organize, monitor, and analyze their job applications from multiple sources in one place.
+# 🚀 Job Tracker
 
-🚧 Project Status: Frontend Development (In Progress)
+An AI-powered Job Application Tracking Platform that helps job seekers automatically organize, monitor, and analyze their job applications from multiple sources in one place.
 
-📖 About the Project
-Job-Tracker is a modern full-stack web application built to simplify the job search process.
+> 🚧 **Project Status:** Actively Under Development
 
-Instead of manually maintaining spreadsheets, Job-Tracker aims to automatically collect job application information, provide AI-powered insights, and visualize your application progress through an interactive dashboard.
+---
 
-✨ Features
-📊 Dashboard
-View total applications
-Track interviews and offers
-Application statistics
-Responsive dashboard
-💼 Applications
-View all job applications
-Search applications
-Filter by status
-Track application progress
-🤖 AI Insights (Planned)
-Resume vs Job Description Match Score
-AI-powered career recommendations
-Skill gap analysis
-Interview preparation suggestions
-Resume improvement tips
-📧 Automatic Job Tracking (Planned)
-Gmail Integration
-Detect job application emails automatically
-Extract:
-Company Name
-Job Role
-Application Date
-Current Status
-Support applications from:
-LinkedIn
-Indeed
-Naukri
-Internshala
-Wellfound
-Company Career Pages
-Any platform that sends confirmation emails
-⚙️ Settings
-User Profile
-Gmail Connection
-AI Configuration
-Notification Settings
-🛠 Tech Stack
-Frontend
-React.js
-Vite
-Tailwind CSS
-React Router DOM
-Axios
-Lucide React
-Recharts
-Backend (Planned)
-FastAPI
-SQLAlchemy
-PostgreSQL
-JWT Authentication
-AI & APIs (Planned)
-Google Gemini API
-Gmail API
-OAuth 2.0
-📂 Folder Structure
-src/
+# 📖 About
+
+Job Tracker is a modern full-stack application built to simplify the job search process.
+
+Instead of maintaining spreadsheets manually, Job Tracker automatically tracks your applications, manages interview progress, provides AI-powered insights, and visualizes everything through a clean dashboard.
+
+The long-term goal is to create a personal AI career assistant for job seekers.
+
+---
+
+# ✨ Features
+
+## 📊 Dashboard
+
+- Total Applications
+- Interviews Scheduled
+- Job Offers
+- Application Statistics
+- Responsive Dashboard UI
+
+---
+
+## 💼 Application Management
+
+- View all applications
+- Search applications
+- Filter by status
+- Track application progress
+- Application details page
+
+---
+
+## 🤖 AI Insights *(Coming Soon)*
+
+- Resume vs Job Description Match Score
+- Skill Gap Analysis
+- Resume Improvement Suggestions
+- Career Recommendations
+- Interview Preparation Tips
+
+---
+
+## 📧 Automatic Job Tracking *(Coming Soon)*
+
+Automatically detect application emails from Gmail.
+
+Extract information such as:
+
+- Company Name
+- Job Role
+- Application Date
+- Current Status
+
+Supported Platforms
+
+- LinkedIn
+- Indeed
+- Naukri
+- Internshala
+- Wellfound
+- Company Career Pages
+- Any platform sending confirmation emails
+
+---
+
+## ⚙️ Settings
+
+- User Profile
+- Gmail Connection
+- AI Configuration
+- Notification Settings
+
+---
+
+# 🛠 Tech Stack
+
+## Frontend
+
+- React.js
+- Vite
+- Tailwind CSS
+- React Router DOM
+- Axios
+- Lucide React
+- Recharts
+
+---
+
+## Backend
+
+- FastAPI
+- SQLAlchemy
+- PostgreSQL
+- JWT Authentication
+
+---
+
+## AI & APIs
+
+- Google Gemini API
+- Gmail API
+- OAuth 2.0
+
+---
+
+# 📂 Project Structure
+
+```
+Job-Tracker
 │
-├── components/
-├── layouts/
-├── pages/
-│   ├── Dashboard.jsx
-│   ├── Application.jsx
-│   ├── AIInsights.jsx
-│   └── Setting.jsx
+├── backend
+│   ├── app
+│   ├── migrations
+│   └── requirements.txt
 │
-├── routes/
-│   └── AppRoutes.jsx
+├── job-tracker
+│   ├── public
+│   ├── src
+│   │
+│   ├── components
+│   ├── context
+│   ├── layouts
+│   ├── pages
+│   │   ├── Dashboard.jsx
+│   │   ├── Application.jsx
+│   │   ├── AIInsights.jsx
+│   │   ├── Analytics.jsx
+│   │   ├── Calendar.jsx
+│   │   ├── Companies.jsx
+│   │   ├── Pipeline.jsx
+│   │   ├── Resume.jsx
+│   │   └── Settings.jsx
+│   │
+│   ├── routes
+│   ├── App.jsx
+│   └── main.jsx
 │
-├── App.jsx
-├── main.jsx
-└── index.css
-✅ Current Progress
-React + Vite Setup
-Tailwind CSS Integration
-React Router Setup
-Dashboard UI
-Applications Page
-AI Insights Page
-Settings Page
-🚀 Upcoming Features
-User Authentication
-FastAPI Backend
-PostgreSQL Database
-Gmail Integration
-AI Resume Analyzer
-Resume Match Score
-Interview Question Generator
-Analytics Dashboard
-Charts & Reports
-Automatic Application Detection
-Responsive Design Improvements
-Deployment on Netlify & Render
-📦 Installation
-Clone the repository:
+└── README.md
+```
 
+---
+
+# ✅ Current Progress
+
+- ✅ React + Vite Setup
+- ✅ Tailwind CSS Setup
+- ✅ React Router
+- ✅ Dashboard UI
+- ✅ Application Management
+- ✅ Analytics Page
+- ✅ Calendar Page
+- ✅ Resume Page
+- ✅ Pipeline Page
+- ✅ Company Management
+- ✅ FastAPI Project Structure
+- ✅ PostgreSQL Models
+- ✅ Authentication Backend
+
+---
+
+# 🚀 Upcoming Features
+
+- User Authentication
+- Gmail OAuth Login
+- Automatic Email Detection
+- AI Resume Analyzer
+- Resume Match Score
+- Interview Question Generator
+- Skill Gap Analysis
+- AI Career Recommendations
+- Analytics Dashboard
+- Notifications
+- Dark Mode
+- Deployment
+
+---
+
+# 📦 Installation
+
+## Clone the repository
+
+```bash
 git clone https://github.com/rishika553/Job-Tracker.git
-Navigate into the project:
+```
 
+## Navigate to the project
+
+```bash
 cd Job-Tracker
-Install dependencies:
+```
 
+---
+
+## Frontend Setup
+
+```bash
+cd job-tracker
 npm install
-Run the development server:
-
 npm run dev
-🎯 Roadmap
-[] React Project Setup
- Dashboard UI
- Routing
- Basic Pages
- Authentication
- FastAPI Backend
- PostgreSQL Integration
- Gmail API Integration
- AI Insights
- Resume Analysis
- Automatic Job Tracking
- Deployment
-🤝 Contributing
+```
+
+Runs on:
+
+```
+http://localhost:5173
+```
+
+---
+
+## Backend Setup
+
+```bash
+cd backend
+
+python -m venv venv
+
+venv\Scripts\activate
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+```
+
+Runs on:
+
+```
+http://localhost:8000
+```
+
+---
+
+# 🗺 Roadmap
+
+- ✅ React Project Setup
+- ✅ Dashboard UI
+- ✅ Routing
+- ✅ Application Pages
+- ✅ Backend Architecture
+- ⏳ Authentication
+- ⏳ PostgreSQL Integration
+- ⏳ Gmail Integration
+- ⏳ AI Insights
+- ⏳ Resume Analysis
+- ⏳ Automatic Job Tracking
+- ⏳ Notifications
+- ⏳ Deployment
+
+---
+
+# 🤝 Contributing
+
 Contributions, suggestions, and feature requests are welcome.
 
-Feel free to fork the repository and create a pull request.
+1. Fork the repository
+2. Create a new branch
+3. Commit your changes
+4. Push the branch
+5. Open a Pull Request
 
-👩‍💻 Developer
-Rishika
+---
 
-BCA Student | Full Stack Developer | AI Enthusiast
+# 👩‍💻 Developer
+
+**Rishika**
+
+BCA Student • Full Stack Developer • AI Enthusiast
 
 GitHub: https://github.com/rishika553
 
-⭐ Support
-If you like this project, consider giving it a ⭐ on GitHub!
+---
+
+# ⭐ Support
+
+If you found this project useful, please consider giving it a **⭐ Star** on GitHub.
+
+It helps the project reach more developers and motivates future development.
+
+---
