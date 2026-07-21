@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 import uuid
 
 from app.core.config import settings
+from app.core.http_client import get_http_client
+from app.core.security import encrypt_token, decrypt_token
 from app.models.connected_gmail import ConnectedGmailAccount
 from app.repositories.connected_gmail import ConnectedGmailRepository
 
@@ -58,12 +60,12 @@ class GoogleAuthClient(BaseOAuthClient):
             "redirect_uri": settings.GOOGLE_REDIRECT_URI,
             "grant_type": "authorization_code",
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self.token_url, data=data, timeout=5.0)
-            if response.status_code != 200:
-                logger.error(f"Failed to exchange Gmail auth code: {response.text}")
-                response.raise_for_status()
-            return response.json()
+        client = get_http_client()
+        response = await client.post(self.token_url, data=data, timeout=5.0)
+        if response.status_code != 200:
+            logger.error(f"Failed to exchange Gmail auth code: {response.text}")
+            response.raise_for_status()
+        return response.json()
 
     async def refresh_tokens(self, refresh_token: str) -> Dict[str, Any]:
         """Request new access token from Google using the stored refresh token."""
@@ -73,23 +75,23 @@ class GoogleAuthClient(BaseOAuthClient):
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
             "grant_type": "refresh_token",
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(self.token_url, data=data, timeout=5.0)
-            if response.status_code != 200:
-                logger.error(f"Failed to refresh Gmail tokens: {response.text}")
-                response.raise_for_status()
-            return response.json()
+        client = get_http_client()
+        response = await client.post(self.token_url, data=data, timeout=5.0)
+        if response.status_code != 200:
+            logger.error(f"Failed to refresh Gmail tokens: {response.text}")
+            response.raise_for_status()
+        return response.json()
 
     async def fetch_user_email(self, access_token: str) -> str:
         """Fetch the email address associated with the given Google access token."""
         url = "https://www.googleapis.com/oauth2/v2/userinfo"
         headers = {"Authorization": f"Bearer {access_token}"}
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=5.0)
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch Gmail userinfo email: {response.text}")
-                response.raise_for_status()
-            return response.json().get("email")
+        client = get_http_client()
+        response = await client.get(url, headers=headers, timeout=5.0)
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch Gmail userinfo email: {response.text}")
+            response.raise_for_status()
+        return response.json().get("email")
 
 
 class GmailClient(BaseEmailClient):
@@ -108,46 +110,46 @@ class GmailClient(BaseEmailClient):
         if q:
             params["q"] = q
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url, headers=headers, params=params, timeout=5.0
-            )
-            if response.status_code != 200:
-                logger.error(f"Failed to list Gmail messages: {response.text}")
-                response.raise_for_status()
-            return response.json().get("messages", [])
+        client = get_http_client()
+        response = await client.get(
+            url, headers=headers, params=params, timeout=5.0
+        )
+        if response.status_code != 200:
+            logger.error(f"Failed to list Gmail messages: {response.text}")
+            response.raise_for_status()
+        return response.json().get("messages", [])
 
     async def get_message(self, access_token: str, message_id: str) -> Dict[str, Any]:
         """Fetch detailed information of a message and parse raw headers."""
         url = f"{self.base_url}/messages/{message_id}"
         headers = {"Authorization": f"Bearer {access_token}"}
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=5.0)
-            if response.status_code != 200:
-                logger.error(f"Failed to fetch Gmail message {message_id}: {response.text}")
-                response.raise_for_status()
-            data = response.json()
+        client = get_http_client()
+        response = await client.get(url, headers=headers, timeout=5.0)
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch Gmail message {message_id}: {response.text}")
+            response.raise_for_status()
+        data = response.json()
 
-            parsed = {
-                "id": data.get("id"),
-                "snippet": data.get("snippet", ""),
-                "subject": "",
-                "sender": "",
-                "date": "",
-            }
+        parsed = {
+            "id": data.get("id"),
+            "snippet": data.get("snippet", ""),
+            "subject": "",
+            "sender": "",
+            "date": "",
+        }
 
-            headers_list = data.get("payload", {}).get("headers", [])
-            for h in headers_list:
-                name = h.get("name", "").lower()
-                value = h.get("value", "")
-                if name == "subject":
-                    parsed["subject"] = value
-                elif name == "from":
-                    parsed["sender"] = value
-                elif name == "date":
-                    parsed["date"] = value
+        headers_list = data.get("payload", {}).get("headers", [])
+        for h in headers_list:
+            name = h.get("name", "").lower()
+            value = h.get("value", "")
+            if name == "subject":
+                parsed["subject"] = value
+            elif name == "from":
+                parsed["sender"] = value
+            elif name == "date":
+                parsed["date"] = value
 
-            return parsed
+        return parsed
 
 
 class GmailService:
@@ -181,16 +183,16 @@ class GmailService:
         # 2. Query user email to link credentials to database record
         email = await self.oauth_client.fetch_user_email(access_token)
 
-        # 3. Save or update record in database
+        # 3. Save or update record in database (Encrypt tokens at rest)
         existing_account = await self.gmail_repo.get_by_email(email)
         if existing_account:
             update_data = {
-                "access_token": access_token,
+                "access_token": encrypt_token(access_token),
                 "token_expiry": token_expiry,
                 "is_active": True,
             }
             if refresh_token:
-                update_data["refresh_token"] = refresh_token
+                update_data["refresh_token"] = encrypt_token(refresh_token)
             return await self.gmail_repo.update(
                 db_obj=existing_account, obj_in=update_data
             )
@@ -199,8 +201,8 @@ class GmailService:
             obj_in={
                 "user_id": user_id,
                 "email": email,
-                "access_token": access_token,
-                "refresh_token": refresh_token,
+                "access_token": encrypt_token(access_token),
+                "refresh_token": encrypt_token(refresh_token),
                 "token_expiry": token_expiry,
                 "scopes": scopes,
                 "is_active": True,
@@ -214,13 +216,16 @@ class GmailService:
         if expiry.tzinfo is None:
             expiry = expiry.replace(tzinfo=timezone.utc)
 
+        raw_refresh_token = decrypt_token(account.refresh_token)
+        raw_access_token = decrypt_token(account.access_token)
+
         # If expired or expiring within 60 seconds, trigger refresh rotation
         if expiry - timedelta(seconds=60) < datetime.now(timezone.utc):
-            if not account.refresh_token:
+            if not raw_refresh_token:
                 raise ValueError("No refresh token stored to rotate expired session.")
 
             refresh_data = await self.oauth_client.refresh_tokens(
-                account.refresh_token
+                raw_refresh_token
             )
             new_access_token = refresh_data.get("access_token")
             expires_in = refresh_data.get("expires_in", 3600)
@@ -229,13 +234,13 @@ class GmailService:
             await self.gmail_repo.update(
                 db_obj=account,
                 obj_in={
-                    "access_token": new_access_token,
+                    "access_token": encrypt_token(new_access_token),
                     "token_expiry": new_expiry,
                 },
             )
             return new_access_token
 
-        return account.access_token
+        return raw_access_token
 
     async def fetch_recent_emails(
         self, account_id: uuid.UUID, max_results: int = 10

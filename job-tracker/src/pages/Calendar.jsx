@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { calendarApi } from "../services/calendarApi";
 import { useJobTracker } from "../context/JobTrackerContext";
 import { 
   Plus, 
@@ -14,17 +15,38 @@ import {
   MapPin,
   Bookmark,
   PhoneCall,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react";
 
 export default function Calendar() {
   const { applications, loadDemoData } = useJobTracker();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [customEvents, setCustomEvents] = useState([]);
 
   // Local state for scheduler
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 15)); // Focus on July 2026
-  const [selectedDateStr, setSelectedDateStr] = useState("2026-07-15");
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDateStr, setSelectedDateStr] = useState(new Date().toISOString().split("T")[0]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [customEvents, setCustomEvents] = useState([]);
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await calendarApi.getEvents();
+      setEvents(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load calendar events.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
 
   // Form states for the professional scheduling interface
   const [formCompany, setFormCompany] = useState("");

@@ -18,11 +18,15 @@ class JobApplicationService:
         return await self.job_repo.get(job_id)
 
     async def get_user_applications(
-        self, user_id: uuid.UUID, skip: int = 0, limit: int = 100
+        self,
+        user_id: uuid.UUID,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
     ) -> List[JobApplication]:
         """Retrieve all job applications associated with a specific user."""
         return await self.job_repo.get_multi_by_user(
-            user_id=user_id, skip=skip, limit=limit
+            user_id=user_id, status=status, skip=skip, limit=limit
         )
 
     async def create_application(

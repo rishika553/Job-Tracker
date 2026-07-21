@@ -1,4 +1,5 @@
 from typing import AsyncGenerator
+import uuid
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
@@ -67,7 +68,11 @@ async def get_current_user(
 
 
     user_repo = UserRepository(db)
-    user = await user_repo.get(token_data.sub)
+    try:
+        user_id = uuid.UUID(token_data.sub)
+    except (ValueError, AttributeError):
+        raise credentials_exception
+    user = await user_repo.get(user_id)
     if not user:
         raise credentials_exception
     if not user.is_active:

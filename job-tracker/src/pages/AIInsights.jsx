@@ -11,7 +11,8 @@ import {
   MessageSquareCode, 
   FileText,
   FileCheck,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 

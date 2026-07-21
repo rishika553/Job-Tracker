@@ -1,26 +1,29 @@
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.jobs.tasks import (
+    run_gmail_sync_pipeline,
+    run_notification_reminders_pipeline,
+)
 
 logger = logging.getLogger(__name__)
 
-# AsyncIOScheduler executes tasks on FastAPI's asynchronous event loop
+# AsyncIOScheduler executes background tasks on FastAPI's asynchronous event loop
 scheduler = AsyncIOScheduler()
 
-
-async def poll_gmail_emails_job():
-    """
-    Background task to scan for new job-related emails.
-    Stripe-grade background processing is decoupled from request-response cycles.
-    """
-    logger.info("Executing scheduled job: polling Gmail and running AI analysis...")
-
-
-# Add scheduled jobs
-# Runs every 10 minutes to poll emails
+# 1. Email Sync Job: Runs every 5 minutes to poll emails, classify, extract, and generate alerts
 scheduler.add_job(
-    poll_gmail_emails_job,
+    run_gmail_sync_pipeline,
     "interval",
-    minutes=10,
+    minutes=5,
     id="gmail_poll_job",
+    replace_existing=True,
+)
+
+# 2. Notification Reminders Job: Runs every 15 minutes to check for upcoming interviews & follow-up reminders
+scheduler.add_job(
+    run_notification_reminders_pipeline,
+    "interval",
+    minutes=15,
+    id="notification_reminders_job",
     replace_existing=True,
 )

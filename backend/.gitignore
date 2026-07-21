@@ -1,0 +1,13 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+
+# Virtual environments
+venv/
+.venv/
+
+# SQLite database
+careertrack.db

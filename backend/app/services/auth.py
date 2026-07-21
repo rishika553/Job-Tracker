@@ -130,12 +130,10 @@ class AuthService:
 
         # Expiry is set dynamically based on config settings
         expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-        await self.refresh_token_repo.create(
-            obj_in={
-                "user_id": user_id,
-                "token": refresh_token,
-                "expires_at": expires_at,
-            }
+        await self.refresh_token_repo.create_hashed(
+            user_id=user_id,
+            raw_token=refresh_token,
+            expires_at=expires_at,
         )
 
         return {

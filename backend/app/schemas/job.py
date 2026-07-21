@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from typing import Any, Optional
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class JobApplicationBase(BaseModel):
@@ -13,6 +13,15 @@ class JobApplicationBase(BaseModel):
     salary_range: Optional[str] = None
     job_description: Optional[str] = None
     source: str = "manual"
+
+    @field_validator("company", mode="before")
+    @classmethod
+    def serialize_company(cls, v: Any) -> str:
+        if hasattr(v, "name"):
+            return v.name
+        if isinstance(v, dict) and "name" in v:
+            return v["name"]
+        return str(v) if v is not None else ""
 
 
 class JobApplicationCreate(JobApplicationBase):

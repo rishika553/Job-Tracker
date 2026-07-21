@@ -44,8 +44,8 @@ export default function Pipeline() {
 
   // Filters
   const filteredApps = applications.filter(app => {
-    const matchesSearch = app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          app.role.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (app.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (app.role || app.title || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBookmark = !onlyBookmarked || app.bookmarked;
     return matchesSearch && matchesBookmark;
   });
@@ -252,8 +252,8 @@ export default function Pipeline() {
                       {/* Logo and Star Header */}
                       <div className="flex items-start justify-between">
                         <div className="flex gap-2.5 items-start">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradBackground(app.company)} text-white font-extrabold text-xs uppercase flex items-center justify-center shadow-3xs shrink-0 mt-0.5`}>
-                            {app.company[0]}
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getGradBackground(app.company || '?')} text-white font-extrabold text-xs uppercase flex items-center justify-center shadow-3xs shrink-0 mt-0.5`}>
+                            {(app.company || '?')[0]}
                           </div>
                           <div className="min-w-0">
                             <h4 className="text-xs font-bold text-brand-900 group-hover:text-amber-600 transition-colors truncate">

@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJobTracker } from "../context/JobTrackerContext";
+import { useAuth } from "../context/AuthContext";
+import { dashboardApi } from "../services/dashboardApi";
 import ApplicationModal from "../components/ApplicationModal";
 import { 
   Briefcase, 
@@ -22,7 +24,8 @@ import {
   Layers,
   MessageSquare,
   AlertCircle,
-  Play
+  Play,
+  Loader2
 } from "lucide-react";
 import { 
   AreaChart, 
@@ -32,38 +35,60 @@ import {
 } from "recharts";
 
 export default function Dashboard() {
-  const { 
-    applications: contextApplications, 
-    gmailStatus, 
-    activities: contextActivities, 
-    syncGmail,
+  const { user } = useAuth();
+  const {
+    applications: contextApplications,
+    activities: contextActivities,
+    gmailStatus,
+    selectedAppId,
     setSelectedAppId,
+    syncGmail,
     loadDemoData,
-    clearHunt
+    clearHunt,
   } = useJobTracker();
-  
+  const [dashboardData, setDashboardData] = useState({
+    total_applications: 0,
+    applied_count: 0,
+    interviewing_count: 0,
+    offered_count: 0,
+    rejected_count: 0,
+    response_rate: 0,
+    recent_applications: [],
+    upcoming_events: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeDateStr, setActiveDateStr] = useState(new Date().toISOString().split("T")[0]);
   const navigate = useNavigate();
 
-  const applications = contextApplications || [];
-  
-  // 1. Personalized welcome header & 16. Search Streak calculations
-  const searchStreak = applications.length > 0 
-    ? Math.min(applications.length * 2 + contextActivities.length, 12) 
-    : 0;
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await dashboardApi.getSummary();
+      setDashboardData(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load dashboard metrics.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Compute Statistics for 4. Application overview
-  const totalApps = applications.length;
-  const wishlistCount = applications.filter(a => a.status === "wishlist").length;
-  const appliedCount = applications.filter(a => a.status === "applied").length;
-  const interviewCount = applications.filter(a => a.status === "interview").length;
-  const offerCount = applications.filter(a => a.status === "offer").length;
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  // 6. Response rate calculations
-  const responseRate = totalApps > 0 
-    ? Math.round(((offerCount + interviewCount) / totalApps) * 100)
-    : 0;
+  const applications = dashboardData.recent_applications || [];
+  const totalApps = dashboardData.total_applications;
+  const appliedCount = dashboardData.applied_count;
+  const interviewCount = dashboardData.interviewing_count;
+  const offerCount = dashboardData.offered_count;
+  const responseRate = Math.round(dashboardData.response_rate * 100);
+
+  // Derived from context applications (local state, not backend)
+  const wishlistCount = contextApplications.filter(a => a.status === "wishlist").length;
+  const searchStreak = Math.max(1, contextApplications.length > 0 ? 7 : 0);
 
   // 15. Dynamic Weekly activity graph calculations
   const getWeeklyActivity = () => {

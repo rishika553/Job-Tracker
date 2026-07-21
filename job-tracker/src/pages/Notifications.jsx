@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { notificationsApi } from "../services/notificationsApi";
 import { useJobTracker } from "../context/JobTrackerContext";
 import { 
   Inbox, 
@@ -15,21 +16,39 @@ import {
   Layers, 
   ChevronRight, 
   AlertCircle,
-  ToggleLeft
+  ToggleLeft,
+  Trash2,
+  Loader2
 } from "lucide-react";
 
 export default function Notifications() {
   const { applications, loadDemoData } = useJobTracker();
-  const navigate = useNavigate();
-
-  // Search & view states
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [viewMode, setViewMode] = useState("feed"); // "feed" (split screen) or "timeline"
   const [selectedNotifId, setSelectedNotifId] = useState(null);
-
-  // Local state tracking read status overrides (no backend mutation)
   const [readStateOverrides, setReadStateOverrides] = useState({});
+  const [viewMode, setViewMode] = useState("feed");
+  const navigate = useNavigate();
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await notificationsApi.listNotifications();
+      setNotifications(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load notifications.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   // Dynamic notifications generation from context applications
   const notificationsList = useMemo(() => {

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { applicationsApi } from "../services/applicationsApi";
 import { useJobTracker } from "../context/JobTrackerContext";
 import ApplicationModal from "../components/ApplicationModal";
 import { 
@@ -19,19 +20,53 @@ import {
   List,
   Plus,
   Filter,
-  Zap
+  Zap,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Application() {
-  const { 
-    applications, 
-    updateApplication, 
-    deleteApplication,
-    loadDemoData
-  } = useJobTracker();
-
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  const fetchApplications = async (statusFilter = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await applicationsApi.listApplications(statusFilter);
+      setApplications(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load job applications.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  // Delete via API
+  const handleDeleteApp = async (id) => {
+    if (!confirm("Delete this application?")) return;
+    try {
+      await applicationsApi.deleteApplication(id);
+      setApplications(prev => prev.filter(a => a.id !== id));
+    } catch {
+      alert("Failed to delete application.");
+    }
+  };
+
+  // Quick status update via API
+  const handleQuickUpdate = async (id, fields) => {
+    try {
+      const updated = await applicationsApi.updateApplication(id, fields);
+      setApplications(prev => prev.map(a => a.id === id ? updated : a));
+    } catch { /* ignore */ }
+  };
 
   // Grid or List view layout
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
@@ -122,66 +157,49 @@ export default function Application() {
 
   // Filters Chains
   const filteredApplications = applications.filter(app => {
-    const matchSearch = app.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        app.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (app.tags && app.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase())));
-    
+    const matchSearch = (app.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (app.title || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchPlatform = selectedPlatform === "All" || app.source === selectedPlatform;
     const matchStatus = selectedStatus === "All" || app.status === selectedStatus;
-    
     const remoteType = getRemoteType(app.location);
     const matchRemote = selectedRemote === "All" || remoteType === selectedRemote;
-    
-    const matchLocation = selectedLocation === "All" || 
-      (app.location && app.location.toLowerCase().includes(selectedLocation.toLowerCase()));
-      
-    const salVal = getSalaryNumeric(app.salary);
+    const matchLocation = selectedLocation === "All" ||
+      ((app.location || "").toLowerCase().includes(selectedLocation.toLowerCase()));
+    const salVal = getSalaryNumeric(app.salary_range);
     let matchSalary = true;
     if (selectedSalary === ">$50k") matchSalary = salVal >= 50000;
     else if (selectedSalary === ">$100k") matchSalary = salVal >= 100000;
     else if (selectedSalary === ">$150k") matchSalary = salVal >= 150000;
-    
     const matchBookmark = !onlyBookmarked || app.bookmarked;
-
     return matchSearch && matchPlatform && matchStatus && matchRemote && matchLocation && matchSalary && matchBookmark;
   });
 
   // Sorting
   const sortedApplications = [...filteredApplications].sort((a, b) => {
-    if (selectedSort === "alphabetical") {
-      return a.company.localeCompare(b.company);
-    }
-    if (selectedSort === "salary-desc") {
-      return getSalaryNumeric(b.salary) - getSalaryNumeric(a.salary);
-    }
-    if (selectedSort === "oldest") {
-      const dateA = a.appliedDate === "-" ? "1970-01-01" : a.appliedDate;
-      const dateB = b.appliedDate === "-" ? "1970-01-01" : b.appliedDate;
-      return dateA.localeCompare(dateB);
-    }
-    // Default newest
-    const dateA = a.appliedDate === "-" ? "1970-01-01" : a.appliedDate;
-    const dateB = b.appliedDate === "-" ? "1970-01-01" : b.appliedDate;
-    return dateB.localeCompare(dateA);
+    if (selectedSort === "alphabetical") return (a.company || '').localeCompare(b.company || '');
+    if (selectedSort === "salary-desc") return getSalaryNumeric(b.salary_range) - getSalaryNumeric(a.salary_range);
+    const dateA = a.applied_at ? a.applied_at.split("T")[0] : "1970-01-01";
+    const dateB = b.applied_at ? b.applied_at.split("T")[0] : "1970-01-01";
+    if (selectedSort === "oldest") return dateA.localeCompare(dateB);
+    return dateB.localeCompare(dateA); // newest
   });
 
-  const allPlatforms = ["All", ...new Set(applications.map(a => a.source))];
-  const allLocations = ["All", ...new Set(applications.map(a => a.location.split(",")[0].split("(")[0].trim()).filter(l => l && l !== "-"))];
+  const allPlatforms = ["All", ...new Set(applications.map(a => a.source).filter(Boolean))];
+  const allLocations = ["All", ...new Set(applications.map(a => (a.location || "").split(",")[0].trim()).filter(l => l))];
 
   const handleDelete = (id) => {
-    if (confirm("Are you sure you want to delete this job application?")) {
-      deleteApplication(id);
-    }
+    handleDeleteApp(id);
   };
 
   const toggleBookmark = (id, currentVal, e) => {
     e.stopPropagation();
-    updateApplication(id, { bookmarked: !currentVal });
+    // bookmarked is a local UI concept — not in backend schema, just toggle locally
+    setApplications(prev => prev.map(a => a.id === id ? { ...a, bookmarked: !currentVal } : a));
   };
 
   const handleQuickStatusChange = (id, newStatus, e) => {
     e.stopPropagation();
-    updateApplication(id, { status: newStatus });
+    handleQuickUpdate(id, { status: newStatus });
   };
 
   const getStatusStyle = (status) => {
@@ -453,7 +471,7 @@ export default function Application() {
                         {app.company}
                       </h4>
                       <p className="text-xs text-brand-500 truncate mt-0.5">
-                        {app.role}
+                        {app.title}
                       </p>
                     </div>
                   </div>

@@ -1,111 +1,96 @@
 import React, { useState, useEffect } from "react";
-import { useJobTracker } from "../context/JobTrackerContext";
-import { X } from "lucide-react";
+import { applicationsApi } from "../services/applicationsApi";
+import { X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) {
-  const { addApplication, updateApplication } = useJobTracker();
-  
+export default function ApplicationModal({ isOpen, onClose, appToEdit = null, onSaved }) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
     company: "",
-    role: "",
+    title: "",
     status: "applied",
     source: "LinkedIn",
-    appliedDate: new Date().toISOString().split("T")[0],
-    salary: "",
+    applied_at: new Date().toISOString().split("T")[0],
+    salary_range: "",
     location: "",
-    tagsString: "",
-    jobDescription: "",
-    notes: ""
+    job_description: "",
   });
 
   useEffect(() => {
+    if (!isOpen) return;
     if (appToEdit) {
       setFormData({
         company: appToEdit.company || "",
-        role: appToEdit.role || "",
+        title: appToEdit.title || appToEdit.role || "",
         status: appToEdit.status || "applied",
         source: appToEdit.source || "LinkedIn",
-        appliedDate: appToEdit.appliedDate === "-" ? "" : (appToEdit.appliedDate || ""),
-        salary: appToEdit.salary || "",
+        applied_at: appToEdit.applied_at
+          ? appToEdit.applied_at.split("T")[0]
+          : (appToEdit.appliedDate && appToEdit.appliedDate !== "-" ? appToEdit.appliedDate : new Date().toISOString().split("T")[0]),
+        salary_range: appToEdit.salary_range || appToEdit.salary || "",
         location: appToEdit.location || "",
-        tagsString: appToEdit.tags ? appToEdit.tags.join(", ") : "",
-        jobDescription: appToEdit.jobDescription || "",
-        notes: appToEdit.notes || ""
+        job_description: appToEdit.job_description || appToEdit.jobDescription || "",
       });
     } else {
       setFormData({
         company: "",
-        role: "",
+        title: "",
         status: "applied",
         source: "LinkedIn",
-        appliedDate: new Date().toISOString().split("T")[0],
-        salary: "",
+        applied_at: new Date().toISOString().split("T")[0],
+        salary_range: "",
         location: "",
-        tagsString: "",
-        jobDescription: "",
-        notes: ""
+        job_description: "",
       });
     }
+    setError("");
   }, [appToEdit, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.company.trim() || !formData.role.trim()) return;
+    if (!formData.company.trim() || !formData.title.trim()) return;
 
-    // Convert comma-separated string to tag array
-    const tags = formData.tagsString
-      ? formData.tagsString.split(",").map(t => t.trim()).filter(Boolean)
-      : [];
-
-    const formattedApp = {
+    const payload = {
       company: formData.company.trim(),
-      role: formData.role.trim(),
+      title: formData.title.trim(),
       status: formData.status,
       source: formData.source,
-      appliedDate: formData.status === "wishlist" ? "-" : (formData.appliedDate || new Date().toISOString().split("T")[0]),
-      salary: formData.salary.trim(),
-      location: formData.location.trim(),
-      tags,
-      jobDescription: formData.jobDescription.trim(),
-      notes: formData.notes.trim()
+      applied_at: formData.status === "wishlist" ? null : formData.applied_at || new Date().toISOString(),
+      salary_range: formData.salary_range.trim() || null,
+      location: formData.location.trim() || null,
+      job_description: formData.job_description.trim() || null,
     };
 
-    if (appToEdit) {
-      updateApplication(appToEdit.id, formattedApp);
-    } else {
-      // Create random logo gradient for variety
-      const gradients = [
-        "from-[#635BFF] to-[#8079FF]",
-        "from-[#5E6AD2] to-[#7B88EB]",
-        "from-[#FF9900] to-[#146B93]",
-        "from-[#0A0A0A] to-[#1C1C1C]",
-        "from-[#10B981] to-[#34D399]",
-        "from-[#EF4444] to-[#F87171]",
-        "from-[#3B82F6] to-[#60A5FA]"
-      ];
-      const randomGradient = gradients[Math.floor(Math.random() * gradients.length)];
-      addApplication({
-        ...formattedApp,
-        logoColor: randomGradient
-      });
+    setSubmitting(true);
+    setError("");
+    try {
+      if (appToEdit) {
+        await applicationsApi.updateApplication(appToEdit.id, payload);
+      } else {
+        await applicationsApi.createApplication(payload);
+      }
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to save application. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-
-    onClose();
   };
 
   const sources = [
-    "LinkedIn", "Indeed", "Wellfound", "Naukri", "Glassdoor", 
-    "Greenhouse", "Lever", "Workday", "Referral", "Career Portal", "Gmail Sync"
+    "LinkedIn", "Indeed", "Wellfound", "Naukri", "Glassdoor",
+    "Greenhouse", "Lever", "Workday", "Referral", "Career Portal", "Gmail Sync", "Manual",
   ];
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -113,7 +98,6 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
           className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px]"
         />
 
-        {/* Modal dialog */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -126,16 +110,19 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
             <h2 className="text-lg font-semibold text-slate-900">
               {appToEdit ? "Edit Application" : "Track New Application"}
             </h2>
-            <button 
-              onClick={onClose}
-              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition"
-            >
+            <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition">
               <X size={18} />
             </button>
           </div>
 
-          {/* Form Content */}
+          {/* Form */}
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+            {error && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-xs font-medium">
+                {error}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Company */}
               <div>
@@ -148,11 +135,11 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                   placeholder="e.g. Stripe"
                   value={formData.company}
                   onChange={(e) => setFormData(p => ({ ...p, company: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
-              {/* Role */}
+              {/* Title */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   Role / Title <span className="text-red-500">*</span>
@@ -161,9 +148,9 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                   type="text"
                   required
                   placeholder="e.g. Frontend Engineer"
-                  value={formData.role}
-                  onChange={(e) => setFormData(p => ({ ...p, role: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  value={formData.title}
+                  onChange={(e) => setFormData(p => ({ ...p, title: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
@@ -175,7 +162,7 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData(p => ({ ...p, status: e.target.value }))}
-                  className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500"
                 >
                   <option value="wishlist">Wishlist</option>
                   <option value="applied">Applied</option>
@@ -193,7 +180,7 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                 <select
                   value={formData.source}
                   onChange={(e) => setFormData(p => ({ ...p, source: e.target.value }))}
-                  className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  className="w-full border border-slate-200 bg-white rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500"
                 >
                   {sources.map(src => (
                     <option key={src} value={src}>{src}</option>
@@ -209,9 +196,9 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                 <input
                   type="date"
                   disabled={formData.status === "wishlist"}
-                  value={formData.appliedDate}
-                  onChange={(e) => setFormData(p => ({ ...p, appliedDate: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-slate-50 disabled:text-slate-400"
+                  value={formData.applied_at}
+                  onChange={(e) => setFormData(p => ({ ...p, applied_at: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </div>
 
@@ -225,35 +212,21 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
                   placeholder="e.g. San Francisco, CA or Remote"
                   value={formData.location}
                   onChange={(e) => setFormData(p => ({ ...p, location: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               {/* Salary */}
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
                   Salary Range
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. $120,000 - $140,000"
-                  value={formData.salary}
-                  onChange={(e) => setFormData(p => ({ ...p, salary: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                />
-              </div>
-
-              {/* Skills/Tags */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                  Skills / Tags (comma separated)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. React, TypeScript, Figma"
-                  value={formData.tagsString}
-                  onChange={(e) => setFormData(p => ({ ...p, tagsString: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                  value={formData.salary_range}
+                  onChange={(e) => setFormData(p => ({ ...p, salary_range: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -265,43 +238,30 @@ export default function ApplicationModal({ isOpen, onClose, appToEdit = null }) 
               </label>
               <textarea
                 rows={3}
-                placeholder="Paste key responsibilities, requirements, or links..."
-                value={formData.jobDescription}
-                onChange={(e) => setFormData(p => ({ ...p, jobDescription: e.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 font-sans resize-none"
-              />
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                Internal Notes
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Interview logs, referral contacts, or reminders..."
-                value={formData.notes}
-                onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 font-sans resize-none"
+                placeholder="Paste key responsibilities or requirements..."
+                value={formData.job_description}
+                onChange={(e) => setFormData(p => ({ ...p, job_description: e.target.value }))}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 font-sans resize-none"
               />
             </div>
           </form>
 
-          {/* Footer Actions */}
+          {/* Footer */}
           <div className="flex justify-end gap-3 px-6 py-4 bg-slate-50 border-t border-slate-100 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-200 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition"
+              className="px-4 py-2 border border-slate-200 bg-white rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!formData.company.trim() || !formData.role.trim()}
-              className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white rounded-lg text-sm font-medium transition cursor-pointer disabled:cursor-not-allowed"
+              disabled={submitting || !formData.company.trim() || !formData.title.trim()}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition flex items-center gap-2"
             >
+              {submitting && <Loader2 size={14} className="animate-spin" />}
               {appToEdit ? "Save Changes" : "Track Application"}
             </button>
           </div>

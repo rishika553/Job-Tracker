@@ -1,5 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 
+import Login from "../pages/Login";
+import ProtectedRoute from "../components/ProtectedRoute";
 import Dashboard from "../pages/Dashboard";
 import Application from "../pages/Application";
 import ApplicationDetails from "../pages/ApplicationDetails";
@@ -15,18 +17,95 @@ import Setting from "../pages/Setting";
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/applications" element={<Application />} />
-      <Route path="/applications/:id" element={<ApplicationDetails />} />
-      <Route path="/pipeline" element={<Pipeline />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="/calendar" element={<Calendar />} />
-      <Route path="/companies" element={<Companies />} />
-      <Route path="/resume" element={<Resume />} />
-      <Route path="/notifications" element={<Notifications />} />
-      <Route path="/ai" element={<AIInsights />} />
-      <Route path="/settings" element={<Setting />} />
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/applications"
+        element={
+          <ProtectedRoute>
+            <Application />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/applications/:id"
+        element={
+          <ProtectedRoute>
+            <ApplicationDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pipeline"
+        element={
+          <ProtectedRoute>
+            <Pipeline />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/companies"
+        element={
+          <ProtectedRoute>
+            <Companies />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/resume"
+        element={
+          <ProtectedRoute>
+            <Resume />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Notifications />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ai"
+        element={
+          <ProtectedRoute>
+            <AIInsights />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Setting />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   );
 }
-// Trigger route rebuild for Notifications Center

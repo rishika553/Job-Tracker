@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 import { useJobTracker } from "../context/JobTrackerContext";
 import { 
   User, 
@@ -14,20 +15,32 @@ import {
   Download,
   ToggleLeft,
   ToggleRight,
-  Globe
+  Globe,
+  LogOut
 } from "lucide-react";
 
 export default function Setting() {
+  const { user, logout } = useAuth();
   const { clearHunt } = useJobTracker();
   const [activeTab, setActiveTab] = useState("profile");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // 1. Profile State
+  // 1. Profile State initialized with live authenticated user
   const [profile, setProfile] = useState({
-    name: "Rishika",
-    email: "rishika@example.com",
-    title: "Frontend Engineer / UI Developer"
+    name: user?.full_name || "User",
+    email: user?.email || "",
+    title: "Software Engineer"
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        name: user.full_name || "User",
+        email: user.email || "",
+        title: "Software Engineer"
+      });
+    }
+  }, [user]);
 
   // 2. Connected Accounts State
   const [connectedAccounts, setConnectedAccounts] = useState({

@@ -1,4 +1,5 @@
 import json
+import os
 from typing import List
 from pydantic import BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,16 +24,18 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7    # 7 days (long-lived refresh)
 
     # Database
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_SERVER: str
+    USE_SQLITE: bool = True
+    SQLITE_DB_FILE: str = "careertrack.db"
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str
+    POSTGRES_DB: str = "careertrack"
 
     # Google OAuth Credentials
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET")
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
 
     # CORS Origins (JSON list format)
     BACKEND_CORS_ORIGINS: Annotated[
@@ -42,7 +45,9 @@ class Settings(BaseSettings):
 
     @property
     def async_database_url(self) -> str:
-        """Asynchronous database connection URL using asyncpg."""
+        """Asynchronous database connection URL using asyncpg or aiosqlite."""
+        if getattr(self, "USE_SQLITE", False):
+            return f"sqlite+aiosqlite:///{self.SQLITE_DB_FILE}"
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

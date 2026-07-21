@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { companiesApi } from "../services/companiesApi";
 import { useJobTracker } from "../context/JobTrackerContext";
 import { 
   Plus, 
@@ -13,19 +14,39 @@ import {
   ExternalLink, 
   Eye, 
   AlertCircle,
-  Tag
+  Tag,
+  Loader2
 } from "lucide-react";
 
 export default function Companies() {
   const { applications, loadDemoData } = useJobTracker();
-  const navigate = useNavigate();
-
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("All");
   const [selectedResponseRate, setSelectedResponseRate] = useState("All");
   const [onlyWithOpenRoles, setOnlyWithOpenRoles] = useState(false);
+  const navigate = useNavigate();
 
-  const totalApps = applications.length;
+  const fetchCompanies = async (query = null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await companiesApi.listCompanies(query);
+      setCompanies(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load companies.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanies(searchTerm || null);
+  }, [searchTerm]);
+
+  const totalApps = companies.length;
 
   // Helper: Numeric Salary Parsing
   const getSalaryNumeric = (salaryStr) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { applicationsApi } from "../services/applicationsApi";
 import { useJobTracker } from "../context/JobTrackerContext";
 import ApplicationModal from "../components/ApplicationModal";
 import { 
@@ -30,84 +31,59 @@ import {
   FileDown,
   Layers,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-// High fidelity fallback profile to display if accessed directly without context jobs
-const DETAIL_FALLBACK = {
-  id: "stripe-detail",
-  company: "Stripe",
-  role: "Frontend Engineer",
-  status: "interview",
-  source: "Gmail Sync",
-  appliedDate: "2026-07-08",
-  salary: "$145,000 - $175,000",
-  location: "San Francisco, CA (Hybrid)",
-  tags: ["React", "TypeScript", "Tailwind CSS", "REST APIs", "Web Performance"],
-  jobDescription: `Stripe is looking for a Frontend Engineer to build the next generation of online payment interfaces. You will work on developer dashboards, user onboarding flows, and high-performance payment widgets.
-  
-  Responsibilities:
-  • Design and implement reusable frontend components with high performance.
-  • Collaborate closely with backend engineers, designers, and product managers.
-  • Lead performance optimization efforts to ensure load times remain under 1s globally.`,
-  notes: "Marcus confirmed technical interview is scheduled for next Tuesday at 2 PM PST. Focus area: Web Performance and Component Design.",
-  tasks: [
-    { id: "t1", text: "Review Stripe API documentation & UI components", completed: true, dueDate: "2026-07-10" },
-    { id: "t2", text: "Practice React component performance optimizations", completed: false, dueDate: "2026-07-14" },
-    { id: "t3", text: "Prepare frontend system design answers", completed: false, dueDate: "2026-07-15" }
-  ],
-  emails: [
-    {
-      id: "e1",
-      from: "Stripe Careers <recruiting@stripe.com>",
-      subject: "Thank you for applying to Stripe!",
-      date: "July 8, 2026",
-      body: "Hello Rishika,\n\nWe received your application for the Frontend Engineer position. Our recruiting team is reviewing your profile and will get back to you shortly.\n\nBest regards,\nStripe Recruiting Team"
-    },
-    {
-      id: "e2",
-      from: "Marcus at Stripe <marcus.a@stripe.com>",
-      subject: "Interview invitation: Stripe Frontend Engineer",
-      date: "July 12, 2026",
-      body: "Hi Rishika,\n\nI hope you are doing well. We were impressed by your resume and would like to schedule a 45-minute technical interview to talk about your React and frontend experience.\n\nBest,\nMarcus"
-    }
-  ],
-  history: [
-    { date: "2026-07-08", status: "applied", notes: "Gmail Auto-detect: Found Greenhouse confirmation" },
-    { date: "2026-07-12", status: "interview", notes: "Gmail Auto-detect: Found Stripe Interview scheduler email" }
-  ],
-  archived: false,
-  bookmarked: true
-};
 
 export default function ApplicationDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { 
-    applications, 
-    updateApplication, 
-    deleteApplication,
-    addTask,
-    toggleTask 
-  } = useJobTracker();
+  const { deleteApplication, updateApplication, addTask, toggleTask, applications: contextApplications } = useJobTracker();
+  const [app, setApp] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Find target application or use fallback mock profile
-  const contextApp = applications.find(a => a.id === id);
-  const isFallback = !contextApp;
-  const app = contextApp || DETAIL_FALLBACK;
+  const fetchApplicationDetails = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await applicationsApi.getApplicationById(id);
+      setApp(data);
+    } catch (err) {
+      // Fallback: try to find the app in local context (e.g. demo data)
+      const contextApp = contextApplications.find(a => a.id === id);
+      if (contextApp) {
+        setApp(contextApp);
+      } else {
+        setError(err.response?.data?.detail || "Application not found.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchApplicationDetails();
+    }
+  }, [id]);
+
+  // isFallback: true when app came from local context, not the backend API
+  const isFallback = app ? !app.created_at : false;
 
   // Local state for modals & text inputs
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [notesText, setNotesText] = useState(app.notes || "");
+  const [notesText, setNotesText] = useState(app?.notes || "");
   const [newTaskText, setNewTaskText] = useState("");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
-  const [expandedEmailId, setExpandedEmailId] = useState(app.emails[0]?.id || null);
+  const [expandedEmailId, setExpandedEmailId] = useState(null);
 
-  // Sync local notes
   useEffect(() => {
-    setNotesText(app.notes || "");
-  }, [app.notes]);
+    if (app) {
+      setNotesText(app.notes || "");
+    }
+  }, [app]);
 
   const handleNotesChange = (e) => {
     const val = e.target.value;
@@ -123,14 +99,13 @@ export default function ApplicationDetails() {
     if (!isFallback) {
       addTask(app.id, newTaskText.trim(), newTaskDueDate);
     } else {
-      // Fallback interaction mock
-      app.tasks.push({
+      app.tasks = [...(app.tasks || []), {
         id: Date.now().toString(),
         text: newTaskText.trim(),
         completed: false,
         dueDate: newTaskDueDate || "2026-07-20"
-      });
-      setNotesText(notesText + " "); // force render
+      }];
+      setNotesText(notesText + " ");
     }
     setNewTaskText("");
     setNewTaskDueDate("");
@@ -140,9 +115,9 @@ export default function ApplicationDetails() {
     if (!isFallback) {
       toggleTask(app.id, taskId);
     } else {
-      const task = app.tasks.find(t => t.id === taskId);
+      const task = (app.tasks || []).find(t => t.id === taskId);
       if (task) task.completed = !task.completed;
-      setNotesText(notesText + " "); // force render
+      setNotesText(notesText + " ");
     }
   };
 
@@ -161,7 +136,7 @@ export default function ApplicationDetails() {
       updateApplication(app.id, { archived: nextArchived });
     } else {
       app.archived = nextArchived;
-      setNotesText(notesText + " "); // force render
+      setNotesText(notesText + " ");
     }
   };
 
@@ -171,7 +146,7 @@ export default function ApplicationDetails() {
       updateApplication(app.id, { bookmarked: nextBookmarked });
     } else {
       app.bookmarked = nextBookmarked;
-      setNotesText(notesText + " "); // force render
+      setNotesText(notesText + " ");
     }
   };
 
@@ -180,14 +155,35 @@ export default function ApplicationDetails() {
       updateApplication(app.id, { status: newStatus });
     } else {
       app.status = newStatus;
-      app.history.push({
+      app.history = [...(app.history || []), {
         date: new Date().toISOString().split("T")[0],
         status: newStatus,
         notes: `Status changed manually to ${newStatus}`
-      });
-      setNotesText(notesText + " "); // force render
+      }];
+      setNotesText(notesText + " ");
     }
   };
+
+  // ── Guard: show loading / error / not-found before accessing app fields ──
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (error || !app) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-center">
+        <AlertCircle className="w-10 h-10 text-rose-400" />
+        <p className="text-sm font-semibold text-slate-600">{error || "Application not found."}</p>
+        <button onClick={() => navigate("/applications")} className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold">
+          Back to Applications
+        </button>
+      </div>
+    );
+  }
 
   // Helper formatting styles
   const getGradBackground = (company) => {
