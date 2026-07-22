@@ -114,6 +114,72 @@ class GeminiLLMClient(BaseLLMClient):
             raise ValueError("Unable to extract text from Gemini response.") from exc
 
 
+def heuristic_parse_email(subject: str, sender: str, body: str) -> ExtractedEmailData:
+    """Heuristic fallback extraction when LLM API key is missing or call fails."""
+    company = ""
+    match_sender = re.search(r'^(.*?)(?:\s*<([^>]+)>)?$', sender)
+    if match_sender:
+        clean_name = match_sender.group(1).strip('"\' ')
+        if clean_name and "donotreply" not in clean_name.lower():
+            company = clean_name.split("|")[0].split("-")[0].strip()
+        elif match_sender.group(2):
+            email_addr = match_sender.group(2)
+            if "@" in email_addr:
+                domain = email_addr.split("@")[1].split(".")[0]
+                company = domain.capitalize()
+
+    role = subject
+    if " at " in subject:
+        parts = subject.split(" at ")
+        role = parts[0].strip()
+        if not company or company.lower() in ["indeed", "jobrapido", "gmail", "inbox"]:
+            company = parts[1].split(".")[0].split("-")[0].strip()
+    elif " for " in subject:
+        parts = subject.split(" for ")
+        role = parts[0].strip()
+        if not company:
+            company = parts[1].strip()
+
+    if not company or company.lower() in ["indeed", "jobrapido", "gmail"]:
+        company = "Hiring Team"
+
+    status_str = "applied"
+    subj_lower = subject.lower()
+    if "interview" in subj_lower or "schedule" in subj_lower:
+        status_str = "interviewing"
+    elif "offer" in subj_lower:
+        status_str = "offered"
+    elif "reject" in subj_lower or "regret" in subj_lower:
+        status_str = "rejected"
+
+    platform = "Gmail Sync"
+    if "indeed" in sender.lower() or "indeed" in subj_lower:
+        platform = "Indeed"
+    elif "linkedin" in sender.lower() or "linkedin" in subj_lower:
+        platform = "LinkedIn"
+    location = None
+    full_text = f"{subject} {snippet}".lower()
+    if "remote" in full_text:
+        location = "Remote"
+    elif "hybrid" in full_text:
+        location = "Hybrid"
+    else:
+        cities = ["Bangalore", "Bengaluru", "Mumbai", "Delhi", "Gurgaon", "Noida", "Hyderabad", "Pune", "Chennai", "Kolkata", "Ahmedabad", "San Francisco", "New York", "London"]
+        for city in cities:
+            if city.lower() in full_text:
+                location = city
+                break
+
+    return ExtractedEmailData(
+        company=company,
+        role=role[:80] if len(role) > 80 else role,
+        platform=platform,
+        application_status=status_str,
+        location=location,
+        confidence_score=0.85
+    )
+
+
 class AIEmailParserService:
     """Isolated service parsing raw emails via LLM and saving JSON results in PostgreSQL."""
 
@@ -139,7 +205,7 @@ class AIEmailParserService:
     ) -> Optional[ExtractedEmailData]:
         """
         Loads an EmailMessage from PostgreSQL, invokes the LLM client, cleans & validates
-        the resulting JSON response with up to `max_retries` attempts, and saves the output in PostgreSQL.
+        the resulting JSON response with fallback to heuristics, and saves output in PostgreSQL.
         """
         email_record = await self.email_repo.get(email_message_id)
         if not email_record:
@@ -179,14 +245,13 @@ class AIEmailParserService:
                 logger.warning(
                     f"AI parsing attempt {attempt}/{max_retries} failed for email {email_message_id}: {exc}"
                 )
-                if attempt == max_retries:
-                    logger.error(
-                        f"All {max_retries} AI parsing attempts failed for email {email_message_id}."
-                    )
-                    # Mark AI status as failed in PostgreSQL to avoid infinite retries
-                    await self.email_repo.update_ai_extraction(
-                        email_id=email_message_id,
-                        extracted_data={"error": str(exc)},
-                        status="failed",
-                    )
-                    return None
+
+        # Fallback to heuristic parser if AI calls fail or GEMINI_API_KEY is not configured
+        fallback_data = heuristic_parse_email(subject, sender, body)
+        serialized_dict = fallback_data.model_dump(mode="json")
+        await self.email_repo.update_ai_extraction(
+            email_id=email_message_id,
+            extracted_data=serialized_dict,
+            status="heuristic_fallback",
+        )
+        return fallback_data

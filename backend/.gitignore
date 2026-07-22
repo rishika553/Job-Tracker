@@ -11,3 +11,5 @@ venv/
 
 # SQLite database
 careertrack.db
+app.db
+careertrack_local_backup.db

@@ -42,17 +42,32 @@ class RuleBasedClassifier(BaseEmailClassifier):
             "taleo.net",
             "bamboohr.com",
             "rippling.com",
+            "indeed.com",
+            "jobalert.indeed.com",
+            "jobrapido.com",
+            "jobrapidoalert.com",
+            "linkedin.com",
+            "naukri.com",
+            "naukrigulf.com",
+            "wellfound.com",
+            "angel.co",
+            "glassdoor.com",
+            "simplyhired.com",
+            "monster.com",
+            "ziprecruiter.com",
+            "dice.com",
+            "hire.withgoogle.com",
         }
 
         # Subject/Snippet keywords indicating a job application lifecycle stage
         self.job_keywords = re.compile(
-            r"\b(application|interview|resume|job offer|rejection|onboarding|phone screen|hiring|career|recruiting|hiring process|application status|assessment)\b",
+            r"\b(application|applied|applicant|interview|resume|cv|job|jobs|hiring|hired|offer|rejection|rejected|intern|internship|developer|engineer|role|position|vacancy|opening|candidacy|candidate|recruiter|recruiting|recruitment|assessment|career|careers|apply)\b",
             re.IGNORECASE,
         )
 
         # Subject/Snippet keywords indicating standard promotional or transactional spam
         self.non_job_keywords = re.compile(
-            r"\b(receipt|invoice|billing|password reset|verify your email|newsletter|weekly digest|shipping confirmation|order confirmation|promo|discount)\b",
+            r"\b(receipt|invoice|billing|password reset|verify your email|shipping confirmation|order confirmation)\b",
             re.IGNORECASE,
         )
 

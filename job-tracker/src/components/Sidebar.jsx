@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { useJobTracker } from "../context/JobTrackerContext";
+import { useAuth } from "../context/AuthContext";
 import { 
   LayoutDashboard, 
   Briefcase, 
@@ -19,6 +20,11 @@ import {
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const { gmailStatus } = useJobTracker();
+  const { user } = useAuth();
+
+  const displayName = user?.full_name || user?.email?.split("@")[0] || "User";
+  const displayEmail = user?.email || "";
+  const displayInitial = displayName[0]?.toUpperCase() || "U";
 
   const navigation = [
     { name: "Dashboard", to: "/", icon: <LayoutDashboard size={18} /> },
@@ -58,12 +64,12 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
         )}
       </div>
 
-      {/* Workspace Selector (Mock) */}
+      {/* Workspace Selector */}
       <div className="px-4 py-3">
         <button className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/60 border border-transparent hover:border-slate-850 text-left transition group text-slate-300">
           <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded bg-primary-500 flex items-center justify-center text-[10px] font-black text-slate-950 shadow-xs">R</span>
-            <span className="text-sm font-semibold">Rishika's Hunt</span>
+            <span className="w-5 h-5 rounded bg-primary-500 flex items-center justify-center text-[10px] font-black text-slate-950 shadow-xs">{displayInitial}</span>
+            <span className="text-sm font-semibold">{displayName}'s Hunt</span>
           </div>
           <ChevronRight size={14} className="text-slate-500 group-hover:translate-x-0.5 transition-transform" />
         </button>
@@ -122,14 +128,14 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
       <div className="p-4 border-t border-slate-850 bg-[#090908]">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-sm font-bold text-primary-500">
-            R
+            {displayInitial}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-slate-300 truncate">
-              Rishika
+              {displayName}
             </p>
             <p className="text-xs text-slate-500 truncate">
-              rishika@example.com
+              {displayEmail}
             </p>
           </div>
         </div>

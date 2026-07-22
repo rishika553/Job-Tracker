@@ -281,14 +281,53 @@ export default function Dashboard() {
   const aiSuggestions = getAISuggestions();
 
   // 9. Recent Recruiter Activity calculations
-  const recruiterActivity = contextActivities.map(a => ({
-    id: a.id,
-    company: a.text.includes("Stripe") ? "Stripe" : a.text.includes("Vercel") ? "Vercel" : a.text.includes("Microsoft") ? "Microsoft" : "Recruiter",
-    recruiter: a.text.includes("Marcus") ? "Marcus" : a.text.includes("Lee") ? "Lee" : "Talent Team",
-    text: a.text,
-    time: a.time,
-    type: a.type
-  }));
+  const parseSender = (rawSender, rawText) => {
+    const senderStr = rawSender || rawText || "";
+    const cleanStr = senderStr.replace(/^"|"$/g, '').trim();
+    
+    const match = cleanStr.match(/^(.*?)(?:\s*<([^>]+)>)?$/);
+    let name = "";
+    let domain = "Inbox";
+
+    if (match) {
+      name = (match[1] || "").replace(/^"|"$/g, '').trim();
+      const email = match[2] || "";
+      if (email.includes("@")) {
+        const domainParts = email.split("@")[1].split(".");
+        let rawDomain = domainParts[0];
+        if ((rawDomain.toLowerCase() === "mail" || rawDomain.toLowerCase() === "jobalert") && domainParts.length > 1) {
+          rawDomain = domainParts[1];
+        }
+        domain = rawDomain.charAt(0).toUpperCase() + rawDomain.slice(1);
+      }
+    }
+
+    if (!name && cleanStr) {
+      name = cleanStr.split("<")[0].replace(/^"|"$/g, '').trim();
+    }
+
+    // Clean pipe titles if too long
+    if (name.includes("|")) {
+      name = name.split("|")[0].trim();
+    }
+
+    return {
+      recruiter: name || "Talent Team",
+      company: domain || "Gmail"
+    };
+  };
+
+  const recruiterActivity = contextActivities.map(a => {
+    const parsed = parseSender(a.sender, a.text);
+    return {
+      id: a.id,
+      company: parsed.company,
+      recruiter: parsed.recruiter,
+      text: a.subject || a.text,
+      time: a.time,
+      type: a.type
+    };
+  });
 
   // 8. Follow-up reminders tasks
   const tasks = applications.flatMap(app => 
@@ -793,8 +832,10 @@ export default function Dashboard() {
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs md:text-sm font-extrabold text-brand-900 font-sans">
-                              {act.recruiter} @ {act.company}
+                            <span className="text-xs md:text-sm font-extrabold text-brand-900 font-sans truncate">
+                              {act.company && act.company.toLowerCase() !== act.recruiter.toLowerCase()
+                                ? `${act.recruiter} @ ${act.company}`
+                                : act.recruiter}
                             </span>
                             <span className="text-xs text-brand-400 font-semibold">{act.time}</span>
                           </div>

@@ -241,26 +241,7 @@ export default function ApplicationDetails() {
   return (
     <div className="space-y-6 relative pb-16 animate-fade-in">
       
-      {/* Fallback Playground Warning Banner */}
-      {isFallback && (
-        <div className="bg-[#0c0a09] border border-amber-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-overlay">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-400/10 flex items-center justify-center text-amber-400 shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Viewing Application Details Playground</h4>
-              <p className="text-[11px] text-brand-400 mt-0.5">Currently displaying a mock details profile for Stripe. Load actual hunt to test dynamic navigation.</p>
-            </div>
-          </div>
-          <button 
-            onClick={() => navigate("/applications")}
-            className="w-full sm:w-auto px-4 py-1.5 bg-amber-400 hover:bg-amber-500 text-brand-950 text-[11px] font-bold rounded-lg transition"
-          >
-            Back to CRM Board
-          </button>
-        </div>
-      )}
+
 
       {/* Sticky Action Panel */}
       <div className="sticky top-0 bg-white/80 backdrop-blur-md border border-brand-200/60 rounded-2xl p-5 shadow-overlay flex flex-col sm:flex-row sm:items-center justify-between gap-4 z-30">

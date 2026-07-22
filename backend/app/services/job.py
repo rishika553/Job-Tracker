@@ -6,6 +6,10 @@ from app.repositories.job import JobApplicationRepository
 from app.schemas.job import JobApplicationCreate, JobApplicationUpdate
 
 
+from app.schemas.company import CompanyCreate
+from app.services.company import CompanyService
+
+
 class JobApplicationService:
     """Service layer managing the lifecycle of Job Applications."""
 
@@ -35,6 +39,13 @@ class JobApplicationService:
         """Create a new job application entry linked to a user."""
         job_data = job_in.model_dump()
         job_data["user_id"] = user_id
+
+        company_name = job_data.pop("company", None)
+        if company_name:
+            company_service = CompanyService(self.db)
+            company_obj = await company_service.create_company(CompanyCreate(name=company_name))
+            job_data["company_id"] = company_obj.id
+
         return await self.job_repo.create(obj_in=job_data)
 
     async def update_application(
@@ -44,7 +55,14 @@ class JobApplicationService:
         job = await self.job_repo.get(job_id)
         if not job:
             return None
-        return await self.job_repo.update(db_obj=job, obj_in=job_in)
+        job_data = job_in.model_dump(exclude_unset=True)
+        if "company" in job_data:
+            company_name = job_data.pop("company")
+            if company_name:
+                company_service = CompanyService(self.db)
+                company_obj = await company_service.create_company(CompanyCreate(name=company_name))
+                job_data["company_id"] = company_obj.id
+        return await self.job_repo.update(db_obj=job, obj_in=job_data)
 
     async def delete_application(
         self, job_id: uuid.UUID

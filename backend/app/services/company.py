@@ -18,7 +18,7 @@ class CompanyService:
         existing = await self.repo.get_by_name(obj_in.name)
         if existing:
             return existing
-        return await self.repo.create(obj_in.model_dump())
+        return await self.repo.create(obj_in=obj_in.model_dump())
 
     async def get_company(self, company_id: uuid.UUID) -> Optional[Company]:
         """Fetch company details by ID."""

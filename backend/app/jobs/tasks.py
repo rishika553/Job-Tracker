@@ -52,10 +52,10 @@ async def sync_account_gmail_emails(
         )
         return 0
 
-    # 1. Fetch recent message headers (newer_than:1d)
+    # 1. Fetch recent message headers (newer_than:30d)
     try:
         messages = await gmail_service.email_client.list_recent_messages(
-            access_token=access_token, q="newer_than:1d", max_results=10
+            access_token=access_token, q="newer_than:30d", max_results=25
         )
     except Exception as exc:
         logger.error(f"Failed to list messages for {account.email}: {exc}")

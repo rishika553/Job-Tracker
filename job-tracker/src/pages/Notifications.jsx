@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 export default function Notifications() {
-  const { applications, loadDemoData } = useJobTracker();
+  const { applications, syncedEmails, activities, gmailStatus, loadDemoData } = useJobTracker();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,6 +32,44 @@ export default function Notifications() {
   const [readStateOverrides, setReadStateOverrides] = useState({});
   const [viewMode, setViewMode] = useState("feed");
   const navigate = useNavigate();
+
+  const renderTextWithLinks = (text) => {
+    if (!text) return null;
+
+    let clean = text;
+    if (typeof clean === "string" && clean.includes("<") && clean.includes(">")) {
+      clean = clean
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+        .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
+        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, "$2 ($1)")
+        .replace(/<\/?(p|div|tr|h1|h2|h3|h4|h5|h6|li|blockquote)[^>]*>/gi, "\n")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, " ");
+    }
+
+    const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/g;
+    const parts = clean.split(urlRegex);
+
+    return parts.map((part, idx) => {
+      if (part.match(urlRegex)) {
+        const href = part.startsWith("www.") ? `https://${part}` : part;
+        return (
+          <a
+            key={idx}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-amber-600 hover:text-amber-700 font-semibold underline underline-offset-2 break-all transition cursor-pointer"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -50,24 +88,47 @@ export default function Notifications() {
     fetchNotifications();
   }, []);
 
-  // Dynamic notifications generation from context applications
+  // Dynamic notifications generation from context applications & synced emails
   const notificationsList = useMemo(() => {
     const list = [];
     
-    // 1. System updates baseline (always active)
-    list.push({
-      id: "sys-1",
-      category: "system",
-      title: "Gmail Sync Engine Scan Active",
-      details: "Scan daemon completed successfully. Scan count: 12 emails parsed. No new applications found.",
-      timestamp: "Today, 9:00 AM",
-      read: true,
-      actionLabel: "View Sync Settings",
-      link: "/settings"
+    // 1. Synced Gmail Inbox Messages
+    (syncedEmails || []).forEach((email, idx) => {
+      const sender = email.sender || email.from || "Gmail";
+      const subject = email.subject || "(No subject)";
+      const body = email.body || email.snippet || subject;
+      list.push({
+        id: `email-${email.id || idx}`,
+        category: "message",
+        title: sender,
+        details: subject,
+        body: body,
+        timestamp: email.date || "Recent",
+        read: false,
+        actionLabel: "Read Message",
+        link: null
+      });
+    });
+
+    // 2. Synced Activities Feed
+    (activities || []).forEach((act) => {
+      if (!list.some(item => item.id === `act-${act.id}`)) {
+        list.push({
+          id: `act-${act.id}`,
+          category: act.type === "sync" ? "message" : "update",
+          title: act.sender || act.text || "System Log",
+          details: act.subject || act.text || "Activity tracked",
+          body: act.text || act.subject || "Synced log message.",
+          timestamp: act.time || "Recent",
+          read: true,
+          actionLabel: "View Activity",
+          link: null
+        });
+      }
     });
 
     applications.forEach(app => {
-      // 2. Interview Reminders
+      // Interview Reminders
       if (app.status === "interview") {
         list.push({
           id: `int-${app.id}`,
@@ -81,7 +142,7 @@ export default function Notifications() {
         });
       }
       
-      // 3. Application Updates
+      // Application Updates
       list.push({
         id: `up-${app.id}`,
         category: "update",
@@ -93,35 +154,7 @@ export default function Notifications() {
         link: `/applications/${app.id}`
       });
 
-      // 4. Recruiter Messages
-      if (app.company === "Stripe" || app.company === "Vercel" || app.company === "Linear") {
-        list.push({
-          id: `rec-${app.id}`,
-          category: "message",
-          title: `Direct message from ${app.company} Recruiter`,
-          details: `Hi Rishika, we reviewed your application and would love to schedule a follow-up assessment sync.`,
-          timestamp: "2 days ago",
-          read: false,
-          actionLabel: "Reply to Recruiter",
-          link: `/applications/${app.id}`
-        });
-      }
-
-      // 5. Assessment Deadlines
-      if (app.company === "Vercel") {
-        list.push({
-          id: `dead-${app.id}`,
-          category: "deadline",
-          title: `${app.company} Coding Challenge Due`,
-          details: `Vercel Next.js developer coding task deadline is approaching (Today, 11:59 PM).`,
-          timestamp: "Today, 11:59 PM",
-          read: false,
-          actionLabel: "View Challenge Checklist",
-          link: `/applications/${app.id}`
-        });
-      }
-
-      // 6. Offers
+      // Offers
       if (app.status === "offer") {
         list.push({
           id: `off-${app.id}`,
@@ -134,34 +167,6 @@ export default function Notifications() {
           link: `/applications/${app.id}`
         });
       }
-
-      // 7. Rejections
-      if (app.status === "rejected") {
-        list.push({
-          id: `rej-${app.id}`,
-          category: "rejection",
-          title: `Application Archive: ${app.company}`,
-          details: `Stripe recruiter feedback logs saved to candidacy note files.`,
-          timestamp: "July 08",
-          read: true,
-          actionLabel: "Read Note Details",
-          link: `/applications/${app.id}`
-        });
-      }
-
-      // 8. AI Suggestions
-      if (app.company === "Stripe") {
-        list.push({
-          id: `ai-${app.id}`,
-          category: "ai",
-          title: `AI Resume Suggestions: ${app.company}`,
-          details: `Incorporate payment dashboard optimization keywords to increase ATS scan match probability to 94%.`,
-          timestamp: "July 10",
-          read: false,
-          actionLabel: "Tailor Resume",
-          link: "/resume"
-        });
-      }
     });
 
     // Apply read overrides from state
@@ -172,7 +177,7 @@ export default function Notifications() {
         read: isOverridden ? readStateOverrides[item.id] : item.read
       };
     });
-  }, [applications, readStateOverrides]);
+  }, [applications, syncedEmails, activities, gmailStatus, readStateOverrides]);
 
   // Categories list metadata
   const categories = [
@@ -237,26 +242,7 @@ export default function Notifications() {
   return (
     <div className="space-y-6 pb-12 animate-fade-in select-none">
       
-      {/* Playground Warning banner if context is empty */}
-      {applications.length === 0 && (
-        <div className="bg-[#0c0a09] border border-amber-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-overlay">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-400/10 flex items-center justify-center text-amber-400 shrink-0">
-              <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Viewing Notification Center Playground</h4>
-              <p className="text-[11px] text-brand-400 mt-0.5 font-sans">No applications tracked. Click below to load demo data and trigger inbox alerts.</p>
-            </div>
-          </div>
-          <button 
-            onClick={loadDemoData}
-            className="w-full sm:w-auto px-4 py-1.5 bg-amber-400 hover:bg-amber-500 text-brand-950 text-[11px] font-bold rounded-lg transition hover-lift cursor-pointer"
-          >
-            Load Demo Hunt
-          </button>
-        </div>
-      )}
+
 
       {/* Heading Block */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
@@ -433,20 +419,35 @@ export default function Notifications() {
                       </div>
 
                       <div className="space-y-3.5">
-                        <h3 className="text-sm font-bold text-brand-900 leading-snug">{activeNotif.title}</h3>
-                        <p className="text-xs text-brand-655 leading-relaxed font-sans">{activeNotif.details}</p>
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-brand-950 text-amber-400 font-extrabold text-xs flex items-center justify-center uppercase shrink-0">
+                            {activeNotif.title[0] || 'M'}
+                          </div>
+                          <div>
+                            <h3 className="text-xs font-bold text-brand-900 leading-tight">{activeNotif.title}</h3>
+                            <span className="text-[10px] text-brand-400 font-mono">{activeNotif.timestamp}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-brand-50/40 border border-brand-100 rounded-xl p-4 space-y-2 text-left">
+                          <h4 className="text-xs font-extrabold text-brand-950 leading-snug">{activeNotif.details}</h4>
+                          <div className="text-xs text-brand-700 leading-relaxed font-sans whitespace-pre-wrap pt-2.5 border-t border-brand-150/60 max-h-[420px] overflow-y-auto font-normal">
+                            {renderTextWithLinks(activeNotif.body || activeNotif.details)}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Action parameters */}
-                      <div className="pt-4 border-t border-brand-100/50 flex justify-end">
-                        <button
-                          onClick={() => navigate(activeNotif.link)}
-                          className="flex items-center gap-1 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                        >
-                          <span>{activeNotif.actionLabel}</span>
-                          <ChevronRight size={13} />
-                        </button>
-                      </div>
+                      {activeNotif.link && (
+                        <div className="pt-3 border-t border-brand-100/50 flex justify-end">
+                          <button
+                            onClick={() => navigate(activeNotif.link)}
+                            className="flex items-center gap-1 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                          >
+                            <span>{activeNotif.actionLabel}</span>
+                            <ChevronRight size={13} />
+                          </button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="text-center text-xs text-brand-450 py-12">

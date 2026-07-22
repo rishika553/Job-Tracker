@@ -17,7 +17,7 @@ router = APIRouter()
 async def list_applications(
     status: Optional[str] = None,
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=100, ge=1, le=500),
     current_user: User = Depends(get_current_user),
     db=Depends(get_db),
 ) -> Any:

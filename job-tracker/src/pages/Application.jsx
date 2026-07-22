@@ -27,6 +27,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Application() {
+  const { applications: contextApps, fetchApplications: refreshContextApps } = useJobTracker();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,6 +39,7 @@ export default function Application() {
     try {
       const data = await applicationsApi.listApplications(statusFilter);
       setApplications(data);
+      refreshContextApps?.();
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load job applications.");
     } finally {
@@ -48,6 +50,12 @@ export default function Application() {
   useEffect(() => {
     fetchApplications();
   }, []);
+
+  useEffect(() => {
+    if (contextApps && contextApps.length > 0) {
+      setApplications(contextApps);
+    }
+  }, [contextApps]);
 
   // Delete via API
   const handleDeleteApp = async (id) => {
@@ -109,7 +117,7 @@ export default function Application() {
 
   // Helper: Remote Type Parsing
   const getRemoteType = (locationStr) => {
-    if (!locationStr || locationStr === "-") return "On-site";
+    if (!locationStr || locationStr === "—" || locationStr === "Not specified") return "Not specified";
     const loc = locationStr.toLowerCase();
     if (loc.includes("remote")) return "Remote";
     if (loc.includes("hybrid")) return "Hybrid";
@@ -122,10 +130,7 @@ export default function Application() {
       const match = app.notes.match(/recruiter \(([^)]+)\)/i);
       if (match) return match[1];
     }
-    if (app.company === "Stripe") return "Marcus";
-    if (app.company === "Vercel") return "Lee";
-    if (app.company === "Linear") return "Karri";
-    return "Talent Team";
+    return "Not specified";
   };
 
   // Dynamic Company Logo Background Colors
@@ -144,14 +149,50 @@ export default function Application() {
     return colors[sum % colors.length];
   };
 
+  const cleanText = (str) => {
+    if (!str) return "";
+    return str
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ");
+  };
+
+  const formatDateStr = (dateStr) => {
+    if (!dateStr || dateStr === "—") return "—";
+    try {
+      const parts = dateStr.split("T")[0].split("-");
+      if (parts.length === 3) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      }
+      return dateStr.split("T")[0];
+    } catch {
+      return dateStr.split("T")[0];
+    }
+  };
+
+  const normalizeStatus = (statusStr) => {
+    if (!statusStr) return "applied";
+    const s = statusStr.toLowerCase();
+    if (s.includes("interview")) return "interview";
+    if (s.includes("offer")) return "offer";
+    if (s.includes("reject")) return "rejected";
+    if (s.includes("wish")) return "wishlist";
+    return "applied";
+  };
+
   // Stage pipeline percentages
   const getPipelinePercentage = (status) => {
-    switch (status) {
+    const norm = normalizeStatus(status);
+    switch (norm) {
       case "wishlist": return 25;
       case "applied": return 50;
       case "interview": return 75;
       case "offer": return 100;
-      default: return 0;
+      default: return 50;
     }
   };
 
@@ -159,8 +200,11 @@ export default function Application() {
   const filteredApplications = applications.filter(app => {
     const matchSearch = (app.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (app.title || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchPlatform = selectedPlatform === "All" || app.source === selectedPlatform;
-    const matchStatus = selectedStatus === "All" || app.status === selectedStatus;
+    const matchPlatform = selectedPlatform === "All" || (app.source && app.source.toLowerCase().includes(selectedPlatform.toLowerCase()));
+    
+    const normStatus = normalizeStatus(app.status);
+    const matchStatus = selectedStatus === "All" || normStatus === normalizeStatus(selectedStatus);
+
     const remoteType = getRemoteType(app.location);
     const matchRemote = selectedRemote === "All" || remoteType === selectedRemote;
     const matchLocation = selectedLocation === "All" ||
@@ -281,6 +325,36 @@ export default function Application() {
             <span>Add Application</span>
           </button>
         </div>
+      </div>
+
+      {/* Stage Category Quick Tabs Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {[
+          { id: "All", label: "All Submitted", count: applications.length, color: "bg-brand-950 text-white" },
+          { id: "applied", label: "Applied", count: applications.filter(a => normalizeStatus(a.status) === "applied").length, color: "bg-amber-500 text-white" },
+          { id: "interview", label: "Interviewing", count: applications.filter(a => normalizeStatus(a.status) === "interview").length, color: "bg-blue-500 text-white" },
+          { id: "offer", label: "Offers", count: applications.filter(a => normalizeStatus(a.status) === "offer").length, color: "bg-emerald-500 text-white" },
+          { id: "wishlist", label: "Wishlist", count: applications.filter(a => normalizeStatus(a.status) === "wishlist").length, color: "bg-purple-500 text-white" },
+          { id: "rejected", label: "Rejected", count: applications.filter(a => normalizeStatus(a.status) === "rejected").length, color: "bg-stone-500 text-white" },
+        ].map((tab) => {
+          const isActive = selectedStatus === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedStatus(tab.id)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                isActive
+                  ? "bg-white text-brand-950 border-amber-400 shadow-sm ring-1 ring-amber-400/20"
+                  : "bg-white/80 hover:bg-white text-brand-600 border-brand-200/80 hover:border-brand-300"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-mono font-extrabold ${tab.color}`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Collapsible Search and Filter Panel */}
@@ -452,134 +526,139 @@ export default function Application() {
             const remoteType = getRemoteType(app.location);
             const recruiter = getRecruiterName(app);
             const progress = getPipelinePercentage(app.status);
-            
+            const cleanCompany = cleanText(app.company);
+            const cleanTitle = cleanText(app.title);
+
             return (
               <motion.div
                 key={app.id}
                 layoutId={`card-${app.id}`}
                 onClick={() => navigate(`/applications/${app.id}`)}
-                className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium hover:shadow-premium-hover hover:border-amber-400/30 cursor-pointer relative group transition-all duration-300 hover-lift"
+                className="bg-white border border-brand-200/70 rounded-2xl p-5 shadow-premium hover:shadow-premium-hover hover:border-amber-400/40 cursor-pointer relative group transition-all duration-300 flex flex-col justify-between"
               >
-                {/* Logo & Bookmark header */}
-                <div className="flex items-start justify-between">
-                  <div className="flex gap-3.5 items-start">
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(app.company)} text-white font-extrabold text-sm uppercase flex items-center justify-center shadow-3xs shrink-0`}>
-                      {app.company[0]}
+                <div>
+                  {/* Company & Role Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3.5 items-start min-w-0 flex-1">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(cleanCompany)} text-white font-extrabold text-sm uppercase flex items-center justify-center shadow-3xs shrink-0 mt-0.5`}>
+                        {cleanCompany[0] || 'C'}
+                      </div>
+                      <div className="min-w-0 flex-1 text-left">
+                        <h4 className="text-sm font-black text-brand-950 group-hover:text-amber-600 transition-colors truncate">
+                          {cleanCompany}
+                        </h4>
+                        <p className="text-xs font-semibold text-brand-600 leading-snug mt-0.5 line-clamp-2">
+                          {cleanTitle}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-bold text-brand-900 group-hover:text-amber-600 transition-colors truncate">
-                        {app.company}
-                      </h4>
-                      <p className="text-xs text-brand-500 truncate mt-0.5">
-                        {app.title}
-                      </p>
+
+                    <button
+                      onClick={(e) => toggleBookmark(app.id, app.bookmarked, e)}
+                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-350 hover:text-amber-500 transition shrink-0 cursor-pointer"
+                      title="Bookmark"
+                    >
+                      <Bookmark size={15} className={app.bookmarked ? "text-amber-500 fill-amber-500" : ""} />
+                    </button>
+                  </div>
+
+                  {/* Metadata Grid */}
+                  <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-brand-500 border-t border-b border-brand-100/60 py-3 text-left">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <MapPin size={12} className="text-brand-400 shrink-0" />
+                      <span className="truncate">{app.location || "Not specified"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0 font-mono text-[11px] font-bold">
+                      <DollarSign size={12} className="text-brand-400 shrink-0" />
+                      <span className="truncate">{app.salary_range || "—"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Calendar size={12} className="text-brand-400 shrink-0" />
+                      <span className="truncate">Applied {formatDateStr(app.applied_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <FolderSync size={12} className="text-brand-400 shrink-0" />
+                      <span className="truncate">{remoteType}</span>
                     </div>
                   </div>
 
-                  {/* Bookmark Button */}
-                  <button
-                    onClick={(e) => toggleBookmark(app.id, app.bookmarked, e)}
-                    className="p-1 hover:bg-brand-50 rounded-lg text-brand-400 hover:text-amber-500 transition cursor-pointer"
-                  >
-                    <Bookmark size={14} className={app.bookmarked ? "text-amber-500 fill-amber-500" : ""} />
-                  </button>
-                </div>
+                  {/* Badges Row */}
+                  <div className="flex items-center justify-between gap-2 mt-3.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-md border tracking-wider ${getStatusStyle(normalizeStatus(app.status))}`}>
+                        {normalizeStatus(app.status)}
+                      </span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border ${getSourceStyle(app.source)}`}>
+                        {app.source || "Gmail Sync"}
+                      </span>
+                    </div>
 
-                {/* Location, Salary & Date Block */}
-                <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-brand-500 border-b border-brand-100/50 pb-3">
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} className="text-brand-400 shrink-0" />
-                    <span className="truncate">{app.location || "—"}</span>
-                  </span>
-                  <span className="flex items-center gap-1 font-mono">
-                    <DollarSign size={11} className="text-brand-400 shrink-0" />
-                    <span className="truncate">{app.salary || "—"}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar size={11} className="text-brand-400 shrink-0" />
-                    <span>Applied {app.appliedDate}</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <FolderSync size={11} className="text-brand-400 shrink-0" />
-                    <span>{remoteType}</span>
-                  </span>
-                </div>
-
-                {/* Status Badges Row */}
-                <div className="flex items-center gap-2 mt-3">
-                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border ${getStatusStyle(app.status)}`}>
-                    {app.status}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${getSourceStyle(app.source)}`}>
-                    {app.source}
-                  </span>
-                </div>
-
-                {/* Stage Pipeline track */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-brand-400 mb-1">
-                    <span>Stage Pipeline</span>
-                    <span>{progress}%</span>
+                    <span className="text-[10px] font-bold text-brand-400 flex items-center gap-1">
+                      <User size={11} />
+                      <span className="truncate max-w-[90px]">{recruiter}</span>
+                    </span>
                   </div>
-                  <div className="w-full h-1 bg-brand-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-300 ${
-                        app.status === 'offer' ? 'bg-emerald-500' :
-                        app.status === 'interview' ? 'bg-blue-500' :
-                        app.status === 'applied' ? 'bg-amber-400' :
-                        'bg-brand-400'
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
+
+                  {/* Stage Progress Bar */}
+                  <div className="mt-4 pt-1">
+                    <div className="flex items-center justify-between text-[10px] font-extrabold text-brand-400 mb-1">
+                      <span className="uppercase tracking-wider">Pipeline Stage</span>
+                      <span className="font-mono">{progress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-brand-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          normalizeStatus(app.status) === 'offer' ? 'bg-emerald-500' :
+                          normalizeStatus(app.status) === 'interview' ? 'bg-blue-500' :
+                          normalizeStatus(app.status) === 'applied' ? 'bg-amber-400' :
+                          'bg-brand-400'
+                        }`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Card Footer */}
-                <div className="mt-4 pt-3 border-t border-brand-100/50 flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-brand-400 flex items-center gap-1">
-                    <User size={11} />
-                    <span>Recruiter: {recruiter}</span>
-                  </span>
+                {/* Card Actions Footer */}
+                <div className="mt-4 pt-3 border-t border-brand-100/60 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    {['wishlist', 'applied', 'interview', 'offer'].map(st => (
+                      st !== normalizeStatus(app.status) && (
+                        <button
+                          key={st}
+                          onClick={(e) => handleQuickStatusChange(app.id, st, e)}
+                          className="px-1.5 py-0.5 bg-brand-100 hover:bg-brand-200 text-brand-700 rounded text-[9px] font-bold uppercase transition cursor-pointer"
+                          title={`Move to ${st}`}
+                        >
+                          {st[0]}
+                        </button>
+                      )
+                    ))}
+                  </div>
 
-                  {/* Quick Actions */}
-                  <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingApp(app);
                         setIsEditModalOpen(true);
                       }}
-                      className="p-1 hover:bg-brand-50 rounded text-brand-500 hover:text-brand-850 transition"
+                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-450 hover:text-brand-850 transition cursor-pointer"
                       title="Edit"
                     >
-                      <Edit3 size={12} />
+                      <Edit3 size={13} />
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(app.id);
                       }}
-                      className="p-1 hover:bg-brand-50 rounded text-brand-400 hover:text-rose-600 transition"
+                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-400 hover:text-rose-600 transition cursor-pointer"
                       title="Delete"
                     >
-                      <Trash2 size={12} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
-                </div>
-
-                {/* Quick Stage Swapper */}
-                <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 scale-90 origin-top-left pointer-events-none group-hover:pointer-events-auto">
-                  {['wishlist', 'applied', 'interview', 'offer'].map(st => (
-                    st !== app.status && (
-                      <button
-                        key={st}
-                        onClick={(e) => handleQuickStatusChange(app.id, st, e)}
-                        className="px-1.5 py-0.5 bg-brand-900 border border-brand-850 text-white rounded text-[8px] font-bold hover:bg-brand-800 uppercase"
-                      >
-                        {st[0]}
-                      </button>
-                    )
-                  ))}
                 </div>
 
               </motion.div>
@@ -595,80 +674,82 @@ export default function Application() {
             const recruiter = getRecruiterName(app);
             const progress = getPipelinePercentage(app.status);
             const remoteType = getRemoteType(app.location);
+            const cleanCompany = cleanText(app.company);
+            const cleanTitle = cleanText(app.title);
 
             return (
               <motion.div
                 key={app.id}
                 layoutId={`card-list-${app.id}`}
                 onClick={() => navigate(`/applications/${app.id}`)}
-                className="bg-white border border-brand-200/60 rounded-xl p-4 shadow-premium hover:shadow-premium-hover hover:border-amber-400/30 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group transition-all duration-300 hover-lift relative"
+                className="bg-white border border-brand-200/70 rounded-xl p-4 shadow-premium hover:shadow-premium-hover hover:border-amber-400/40 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group transition-all duration-300 relative"
               >
                 
-                {/* Left Side */}
-                <div className="flex items-center gap-3.5 min-w-[220px]">
+                {/* Left Side: Logo & Titles */}
+                <div className="flex items-center gap-3.5 min-w-[260px] text-left">
                   <button
                     onClick={(e) => toggleBookmark(app.id, app.bookmarked, e)}
-                    className="text-brand-350 hover:text-amber-500 transition shrink-0"
+                    className="text-brand-350 hover:text-amber-500 transition shrink-0 cursor-pointer"
                   >
-                    <Bookmark size={14} className={app.bookmarked ? "text-amber-500 fill-amber-500" : ""} />
+                    <Bookmark size={15} className={app.bookmarked ? "text-amber-500 fill-amber-500" : ""} />
                   </button>
 
-                  <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${getGradBackground(app.company)} text-white font-extrabold text-xs uppercase flex items-center justify-center shadow-3xs shrink-0`}>
-                    {app.company[0]}
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(cleanCompany)} text-white font-extrabold text-xs uppercase flex items-center justify-center shadow-3xs shrink-0`}>
+                    {cleanCompany[0] || 'C'}
                   </div>
 
-                  <div className="min-w-0">
-                    <h4 className="text-xs md:text-sm font-bold text-brand-900 truncate">
-                      {app.company}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs md:text-sm font-extrabold text-brand-950 truncate">
+                      {cleanCompany}
                     </h4>
-                    <p className="text-xs text-brand-500 truncate mt-0.5">
-                      {app.role}
+                    <p className="text-xs font-semibold text-brand-600 truncate mt-0.5">
+                      {cleanTitle}
                     </p>
                   </div>
                 </div>
 
                 {/* Middle Info */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1 text-xs text-brand-500">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin size={11} className="text-brand-400 shrink-0" />
-                    <span className="truncate">{app.location || "—"}</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1 text-xs text-brand-500 text-left">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <MapPin size={12} className="text-brand-400 shrink-0" />
+                      <span className="truncate">{app.location || "Not specified"}</span>
+                    </span>
+                  <span className="flex items-center gap-1.5 font-mono text-[11px] font-bold min-w-0">
+                    <DollarSign size={12} className="text-brand-400 shrink-0" />
+                    <span className="truncate">{app.salary_range || "—"}</span>
                   </span>
-                  <span className="flex items-center gap-1.5 font-mono">
-                    <DollarSign size={11} className="text-brand-400 shrink-0" />
-                    <span className="truncate">{app.salary || "—"}</span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <Calendar size={12} className="text-brand-400 shrink-0" />
+                    <span className="truncate">{formatDateStr(app.applied_at)}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <Calendar size={11} className="text-brand-400 shrink-0" />
-                    <span className="truncate">{app.appliedDate}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <FolderSync size={11} className="text-brand-400 shrink-0" />
-                    <span>{remoteType}</span>
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <FolderSync size={12} className="text-brand-400 shrink-0" />
+                    <span className="truncate">{remoteType}</span>
                   </span>
                 </div>
 
                 {/* Stage Indicators */}
                 <div className="flex items-center gap-4 min-w-[200px] border-t md:border-t-0 pt-3 md:pt-0">
-                  <div className="w-24 shrink-0">
-                    <span className={`inline-block text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border ${getStatusStyle(app.status)}`}>
-                      {app.status}
+                  <div className="w-24 shrink-0 text-left">
+                    <span className={`inline-block text-[9px] font-black uppercase px-2 py-0.5 rounded border ${getStatusStyle(normalizeStatus(app.status))}`}>
+                      {normalizeStatus(app.status)}
                     </span>
-                    <span className={`block text-[9px] font-bold text-brand-400 mt-1 truncate`}>
-                      via {app.source}
+                    <span className="block text-[9px] font-bold text-brand-400 mt-1 truncate">
+                      via {app.source || "Gmail Sync"}
                     </span>
                   </div>
 
                   <div className="flex-1">
                     <div className="flex justify-between text-[9px] font-bold text-brand-400 mb-0.5">
                       <span>Pipeline</span>
-                      <span>{progress}%</span>
+                      <span className="font-mono">{progress}%</span>
                     </div>
-                    <div className="w-full h-1 bg-brand-100 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-brand-100 rounded-full overflow-hidden">
                       <div 
                         className={`h-full rounded-full transition-all duration-300 ${
-                          app.status === 'offer' ? 'bg-emerald-500' :
-                          app.status === 'interview' ? 'bg-blue-500' :
-                          app.status === 'applied' ? 'bg-amber-400' :
+                          normalizeStatus(app.status) === 'offer' ? 'bg-emerald-500' :
+                          normalizeStatus(app.status) === 'interview' ? 'bg-blue-500' :
+                          normalizeStatus(app.status) === 'applied' ? 'bg-amber-400' :
                           'bg-brand-400'
                         }`}
                         style={{ width: `${progress}%` }}
@@ -677,21 +758,21 @@ export default function Application() {
                   </div>
                 </div>
 
-                {/* Right Side */}
+                {/* Right Side Actions */}
                 <div className="flex items-center justify-between md:justify-end gap-5 border-t md:border-t-0 pt-3 md:pt-0 min-w-[130px]">
                   <span className="text-[10px] font-bold text-brand-400 flex items-center gap-1.5">
                     <User size={11} />
-                    <span>{recruiter}</span>
+                    <span className="truncate max-w-[80px]">{recruiter}</span>
                   </span>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingApp(app);
                         setIsEditModalOpen(true);
                       }}
-                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-500 hover:text-brand-850 transition"
+                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-450 hover:text-brand-850 transition cursor-pointer"
                       title="Edit"
                     >
                       <Edit3 size={13} />
@@ -701,7 +782,7 @@ export default function Application() {
                         e.stopPropagation();
                         handleDelete(app.id);
                       }}
-                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-400 hover:text-rose-600 transition"
+                      className="p-1.5 hover:bg-brand-50 rounded-lg text-brand-400 hover:text-rose-600 transition cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 size={13} />
@@ -737,7 +818,7 @@ export default function Application() {
             </button>
             {applications.length === 0 && (
               <button
-                onClick={loadDemoData}
+                onClick={() => setIsAddModalOpen(true)}
                 className="px-4 py-2 bg-white border border-brand-200 hover:border-brand-300 text-brand-700 font-semibold rounded-xl text-xs transition cursor-pointer"
               >
                 Load Demo Hunt
@@ -750,17 +831,16 @@ export default function Application() {
       {/* Add Modal */}
       <ApplicationModal 
         isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+        onClose={() => setIsAddModalOpen(false)}
+        onSaved={() => fetchApplications()}
       />
 
       {/* Edit Modal */}
       <ApplicationModal 
         isOpen={isEditModalOpen} 
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingApp(null);
-        }} 
+        onClose={() => { setIsEditModalOpen(false); setEditingApp(null); }} 
         appToEdit={editingApp}
+        onSaved={() => fetchApplications()}
       />
     </div>
   );

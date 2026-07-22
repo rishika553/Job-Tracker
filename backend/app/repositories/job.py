@@ -1,6 +1,7 @@
 import uuid
 from typing import Any, Dict, List, Optional
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.job import JobApplication
 from app.repositories.base import BaseRepository
@@ -12,6 +13,12 @@ class JobApplicationRepository(BaseRepository[JobApplication]):
     def __init__(self, db: AsyncSession):
         super().__init__(JobApplication, db)
 
+    async def get(self, id: Any) -> Optional[JobApplication]:
+        """Fetch a single job application by primary key with company relationship loaded."""
+        query = select(JobApplication).options(selectinload(JobApplication.company)).where(JobApplication.id == id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+
     async def get_multi_by_user(
         self,
         *,
@@ -21,7 +28,7 @@ class JobApplicationRepository(BaseRepository[JobApplication]):
         limit: int = 100,
     ) -> List[JobApplication]:
         """Fetch list of job applications for a user with optional status filter."""
-        query = select(JobApplication).where(JobApplication.user_id == user_id)
+        query = select(JobApplication).options(selectinload(JobApplication.company))
         if status:
             query = query.where(JobApplication.status == status)
         query = (
