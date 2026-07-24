@@ -53,32 +53,44 @@ async def get_current_user(
     """
     Validates token payloads against JWT signature policies.
     Guards routes and resolves the currently active authenticated User context.
-    If unauthenticated or token expired, resolves the primary active user in DB.
     """
-    user_repo = UserRepository(db)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if token:
-        try:
-            payload = jwt.decode(
-                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        if not token_data.sub or token_data.type != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
             )
-            token_data = TokenPayload(**payload)
-            if token_data.sub and token_data.type == "access":
-                user_id = uuid.UUID(token_data.sub)
-                user = await user_repo.get(user_id)
-                if user and user.is_active:
-                    return user
-        except Exception:
-            pass
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    # Fallback to first active user in DB
-    users = await user_repo.get_multi(limit=1)
-    if users:
-        return users[0]
+    user_repo = UserRepository(db)
+    user_id = uuid.UUID(token_data.sub)
+    user = await user_repo.get(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user",
+        )
 
-    # Create default active user if DB is completely empty
-    from app.schemas.user import UserCreate
-    auth_service = AuthService(db)
-    return await auth_service.register_user(
-        UserCreate(email="rishikaaa02@gmail.com", password="Password123!", full_name="Rishika")
-    )
+    return user

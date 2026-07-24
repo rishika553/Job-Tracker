@@ -59,15 +59,15 @@ class RuleBasedClassifier(BaseEmailClassifier):
             "hire.withgoogle.com",
         }
 
-        # Subject/Snippet keywords indicating a job application lifecycle stage
-        self.job_keywords = re.compile(
-            r"\b(application|applied|applicant|interview|resume|cv|job|jobs|hiring|hired|offer|rejection|rejected|intern|internship|developer|engineer|role|position|vacancy|opening|candidacy|candidate|recruiter|recruiting|recruitment|assessment|career|careers|apply)\b",
+        # Specific phrases confirming an ACTUAL submitted job application or interview/offer
+        self.application_confirmation_keywords = re.compile(
+            r"\b(successfully applied|applied to|applied for|thank you for applying|thank you for your application|application received|application submitted|application confirmation|interview invitation|schedule an interview|interview scheduled|offer letter|job offer|application status|assessment invitation|regret to inform)\b",
             re.IGNORECASE,
         )
 
-        # Subject/Snippet keywords indicating standard promotional or transactional spam
+        # Subject/Snippet keywords indicating job alerts, digests, newsletters, or non-application emails
         self.non_job_keywords = re.compile(
-            r"\b(receipt|invoice|billing|password reset|verify your email|shipping confirmation|order confirmation)\b",
+            r"\b(job alert|jobs alert|recommended jobs|new jobs|jobs matching|jobs for you|top picks|daily digest|weekly digest|newsletter|receipt|invoice|billing|password reset|verify your email|shipping confirmation|order confirmation|login alert|security alert|marketing|community digest|unsubscribe)\b",
             re.IGNORECASE,
         )
 
@@ -79,29 +79,24 @@ class RuleBasedClassifier(BaseEmailClassifier):
     def classify(
         self, subject: str, sender: str, body_snippet: str, labels: Optional[List[str]] = None
     ) -> Tuple[ClassificationResult, float]:
-        domain = self._extract_domain(sender)
         combined_text = f"{subject} {body_snippet}"
 
-        # Rule 1: Check ATS domains (highest confidence score: 1.0)
-        if domain in self.job_domains:
+        # Rule 1: Check for clear job alerts, newsletters, or non-job transactional indicators (Ignore)
+        if self.non_job_keywords.search(combined_text):
+            return ClassificationResult.IGNORE, 0.95
+
+        # Rule 2: Require explicit application confirmation phrases (e.g. "successfully applied", "thank you for applying")
+        if self.application_confirmation_keywords.search(combined_text):
             return ClassificationResult.JOB_EMAIL, 1.0
 
-        # Rule 2: Check Gmail labels if provided (e.g. "Jobs", "Applications")
+        # Rule 3: Check Gmail labels if provided (e.g. "Jobs", "Applications") ONLY if combined_text has application keywords
         if labels:
             for label in labels:
-                if "job" in label.lower() or "application" in label.lower() or "interview" in label.lower():
-                    return ClassificationResult.JOB_EMAIL, 0.95
+                if ("application" in label.lower() or "interview" in label.lower()) and "alert" not in combined_text.lower():
+                    return ClassificationResult.JOB_EMAIL, 0.90
 
-        # Rule 3: Check for clear non-job transactional indicators (Ignore, confidence: 0.90)
-        if self.non_job_keywords.search(combined_text):
-            return ClassificationResult.IGNORE, 0.90
-
-        # Rule 4: Check for recruiting lifecycle keywords in subject or body snippet (confidence: 0.85)
-        if self.job_keywords.search(combined_text):
-            return ClassificationResult.JOB_EMAIL, 0.85
-
-        # Rule 5: Heuristics failed to classify with high confidence (confidence: 0.0)
-        return ClassificationResult.UNKNOWN, 0.0
+        # Default: Ignore generic emails that do not confirm an actual applied application
+        return ClassificationResult.IGNORE, 0.90
 
 
 class EmailClassificationService:

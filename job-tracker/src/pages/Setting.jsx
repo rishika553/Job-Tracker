@@ -224,6 +224,26 @@ export default function Setting() {
                 )}
               </div>
             </form>
+
+            <div className="pt-6 border-t border-brand-100 space-y-3">
+              <h4 className="text-[10px] font-bold text-brand-450 uppercase tracking-wider">Account Session</h4>
+              <div className="p-4 border border-rose-200/80 rounded-2xl bg-rose-50/20 flex items-center justify-between gap-4">
+                <div>
+                  <h5 className="text-xs font-bold text-brand-950">Sign Out of CareerTrack</h5>
+                  <p className="text-[11px] text-brand-500 mt-0.5">End your current session safely. You will be redirected to the login page.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await logout();
+                  }}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-sm"
+                >
+                  <LogOut size={14} />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

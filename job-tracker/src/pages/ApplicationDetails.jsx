@@ -14,6 +14,7 @@ import {
   Bookmark, 
   User, 
   Link as LinkIcon, 
+  ExternalLink,
   FileText, 
   CheckSquare, 
   Mail, 
@@ -220,15 +221,24 @@ export default function ApplicationDetails() {
     { status: "offer", label: "Offer" }
   ];
 
-  const currentStepIndex = pipelineSteps.findIndex(s => s.status === app.status);
+  const isStatusMatch = (stepStatus, appStatus) => {
+    if (!appStatus) return false;
+    if (stepStatus === appStatus) return true;
+    if (stepStatus === "interview" && appStatus === "interviewing") return true;
+    if (stepStatus === "offer" && appStatus === "offered") return true;
+    return false;
+  };
+
+  const currentStepIndex = pipelineSteps.findIndex(s => isStatusMatch(s.status, app.status));
+  const companyName = app.company || "Company";
 
   // Recruiter & Hiring team data
-  const recruiterName = app.company === "Stripe" ? "Marcus A." : app.company === "Vercel" ? "Lee P." : "Talent Acquisition";
-  const recruiterEmail = `${recruiterName.toLowerCase().replace(" ", "")}@${app.company.toLowerCase()}.com`;
+  const recruiterName = companyName === "Stripe" ? "Marcus A." : companyName === "Vercel" ? "Lee P." : "Talent Acquisition";
+  const recruiterEmail = `${recruiterName.toLowerCase().replace(" ", "")}@${companyName.toLowerCase().replace(/\s+/g, "")}.com`;
   
   const hiringTeam = [
     { name: recruiterName, role: "Recruiter", avatar: "MA" },
-    { name: app.company === "Stripe" ? "Karri K." : "Lee P.", role: "Hiring Manager", avatar: "HM" },
+    { name: companyName === "Stripe" ? "Karri K." : "Lee P.", role: "Hiring Manager", avatar: "HM" },
     { name: "Siddharth S.", role: "Engineering Lead", avatar: "SS" }
   ];
 
@@ -236,11 +246,12 @@ export default function ApplicationDetails() {
   const similarJobs = [
     { company: "Linear", role: "Product Engineer", location: "Remote", salary: "$130k - $160k", logoColor: "from-[#5E6AD2] to-[#7B88EB]" },
     { company: "Vercel", role: "Developer Advocate", location: "Remote", salary: "$125k - $155k", logoColor: "from-[#000000] to-[#2563EB]" }
-  ].filter(job => job.company.toLowerCase() !== app.company.toLowerCase());
+  ].filter(job => job.company.toLowerCase() !== companyName.toLowerCase());
 
   return (
     <div className="space-y-6 relative pb-16 animate-fade-in">
       
+
 
 
       {/* Sticky Action Panel */}
@@ -254,13 +265,13 @@ export default function ApplicationDetails() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(app.company)} text-white font-extrabold text-sm uppercase flex items-center justify-center shadow-3xs shrink-0`}>
-            {app.company[0]}
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(companyName)} text-white font-extrabold text-sm uppercase flex items-center justify-center shadow-3xs shrink-0`}>
+            {companyName[0]}
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base md:text-lg font-black text-brand-950 tracking-tight">{app.company}</h1>
+              <h1 className="text-base md:text-lg font-black text-brand-950 tracking-tight">{companyName}</h1>
               {app.bookmarked && (
                 <Bookmark className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
               )}
@@ -268,7 +279,7 @@ export default function ApplicationDetails() {
                 <span className="text-[9px] font-extrabold text-brand-400 bg-brand-100 px-1.5 py-0.5 rounded border">ARCHIVED</span>
               )}
             </div>
-            <p className="text-xs font-semibold text-brand-500">{app.role}</p>
+            <p className="text-xs font-semibold text-brand-500">{app.role || app.title}</p>
           </div>
         </div>
 
@@ -279,7 +290,7 @@ export default function ApplicationDetails() {
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-brand-400 font-bold uppercase">Stage:</span>
             <select
-              value={app.status}
+              value={app.status === "interviewing" ? "interview" : app.status === "offered" ? "offer" : app.status || "applied"}
               onChange={(e) => handleStatusChange(e.target.value)}
               className="border border-brand-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-brand-700 bg-white outline-none cursor-pointer focus:border-brand-500"
             >
@@ -502,14 +513,14 @@ export default function ApplicationDetails() {
           <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium">
             <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-3">Job Description</h3>
             <div className="text-xs md:text-sm text-brand-650 leading-relaxed font-sans whitespace-pre-line bg-brand-50/20 border border-brand-100 rounded-xl p-4 max-h-56 overflow-y-auto">
-              {app.jobDescription}
+              {app.jobDescription || app.job_description || "No detailed job description provided."}
             </div>
           </div>
 
           {/* Interview Schedule */}
           <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium">
             <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-4">Interview Schedule</h3>
-            {app.status === "interview" ? (
+            {app.status === "interview" || app.status === "interviewing" ? (
               <div className="space-y-4">
                 <div className="p-4 bg-brand-50/50 border border-brand-100 rounded-xl space-y-3.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-100/50 pb-3">
@@ -517,7 +528,7 @@ export default function ApplicationDetails() {
                       <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">
                         Technical Panel Loop
                       </span>
-                      <h4 className="text-sm font-bold text-brand-900 mt-1">Stripe Frontend Interview Screen</h4>
+                      <h4 className="text-sm font-bold text-brand-900 mt-1">{companyName} {app.role || app.title || "Engineering"} Interview Screen</h4>
                     </div>
                     <span className="text-xs font-extrabold text-brand-500 font-mono">
                       Jul 17, 2026 — 2:00 PM PST
@@ -669,47 +680,70 @@ export default function ApplicationDetails() {
 
           {/* Synced Email Timeline Accordions */}
           <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
-            <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-4"> synced email threads</h3>
+            <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-4">Synced Applied Email Threads</h3>
             
-            <div className="space-y-3.5">
-              {app.emails && app.emails.map(email => {
-                const isExpanded = expandedEmailId === email.id;
-                return (
-                  <div key={email.id} className="border border-brand-100 rounded-xl overflow-hidden bg-white shadow-2xs">
-                    <div 
-                      onClick={() => setExpandedEmailId(isExpanded ? null : email.id)}
-                      className="p-3.5 bg-brand-50/20 hover:bg-brand-50/50 cursor-pointer flex justify-between items-start select-none transition"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between text-[10px] pr-2">
-                          <span className="font-extrabold text-brand-700 truncate">{email.from}</span>
-                          <span className="font-mono text-brand-400 shrink-0">{email.date}</span>
-                        </div>
-                        <h4 className="text-xs font-bold text-brand-900 mt-1 truncate">{email.subject}</h4>
-                      </div>
-                      <span className="text-brand-400 ml-1 mt-0.5">
-                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </span>
-                    </div>
+            {(() => {
+              const companyLower = (companyName || "").toLowerCase();
+              const relevantEmails = (app.emails && app.emails.length > 0 ? app.emails : syncedEmails || []).filter(email => {
+                if (!email) return false;
+                const sender = (email.sender || email.from || "").toLowerCase();
+                const subject = (email.subject || "").toLowerCase();
+                const body = (email.body || email.snippet || "").toLowerCase();
+                return email.job_application_id === app.id || 
+                       (companyLower && companyLower !== "company" && (sender.includes(companyLower) || subject.includes(companyLower) || body.includes(companyLower)));
+              });
 
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: "auto" }}
-                          exit={{ height: 0 }}
-                          className="overflow-hidden bg-white border-t border-brand-50"
-                        >
-                          <div className="p-3.5 text-xs text-brand-655 font-sans whitespace-pre-wrap leading-relaxed">
-                            {email.body}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+              if (relevantEmails.length === 0) {
+                return (
+                  <div className="p-4 text-center border border-dashed border-brand-200 rounded-xl bg-brand-50/20">
+                    <p className="text-xs text-brand-400 font-semibold">No synced emails found matching {companyName}.</p>
+                    <p className="text-[10px] text-brand-400 mt-1">Only emails directly related to your application at {companyName} will appear here.</p>
                   </div>
                 );
-              })}
-            </div>
+              }
+
+              return (
+                <div className="space-y-3.5">
+                  {relevantEmails.map(email => {
+                    const isExpanded = expandedEmailId === email.id;
+                    return (
+                      <div key={email.id} className="border border-brand-100 rounded-xl overflow-hidden bg-white shadow-2xs">
+                        <div 
+                          onClick={() => setExpandedEmailId(isExpanded ? null : email.id)}
+                          className="p-3.5 bg-brand-50/20 hover:bg-brand-50/50 cursor-pointer flex justify-between items-start select-none transition"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between text-[10px] pr-2">
+                              <span className="font-extrabold text-brand-700 truncate">{email.sender || email.from}</span>
+                              <span className="font-mono text-brand-400 shrink-0">{email.date || "Recent"}</span>
+                            </div>
+                            <h4 className="text-xs font-bold text-brand-900 mt-1 truncate">{email.subject}</h4>
+                          </div>
+                          <span className="text-brand-400 ml-1 mt-0.5">
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </span>
+                        </div>
+
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: "auto" }}
+                              exit={{ height: 0 }}
+                              className="overflow-hidden bg-white border-t border-brand-50"
+                            >
+                              <div className="p-3.5 text-xs text-brand-655 font-sans whitespace-pre-wrap leading-relaxed">
+                                {email.body || email.snippet || "(No content)"}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Notes pad */}

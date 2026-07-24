@@ -117,16 +117,21 @@ class GeminiLLMClient(BaseLLMClient):
 def heuristic_parse_email(subject: str, sender: str, body: str) -> ExtractedEmailData:
     """Heuristic fallback extraction when LLM API key is missing or call fails."""
     company = ""
-    match_sender = re.search(r'^(.*?)(?:\s*<([^>]+)>)?$', sender)
-    if match_sender:
-        clean_name = match_sender.group(1).strip('"\' ')
-        if clean_name and "donotreply" not in clean_name.lower():
-            company = clean_name.split("|")[0].split("-")[0].strip()
-        elif match_sender.group(2):
-            email_addr = match_sender.group(2)
-            if "@" in email_addr:
-                domain = email_addr.split("@")[1].split(".")[0]
-                company = domain.capitalize()
+    sender_clean = sender.strip()
+    
+    if "<" in sender_clean and ">" in sender_clean:
+        display_name = sender_clean.split("<")[0].strip('"\' ')
+        email_addr = sender_clean.split("<")[1].split(">")[0].strip()
+        if display_name and not any(kw in display_name.lower() for kw in ["donotreply", "no-reply", "noreply", "notifications"]):
+            company = display_name.split("|")[0].split("-")[0].strip()
+        elif "@" in email_addr:
+            domain = email_addr.split("@")[1].split(".")[0]
+            company = domain.capitalize()
+    elif "@" in sender_clean:
+        domain = sender_clean.split("@")[1].split(".")[0]
+        company = domain.capitalize()
+    elif sender_clean:
+        company = sender_clean.split("|")[0].split("-")[0].strip()
 
     role = subject
     if " at " in subject:
@@ -158,7 +163,7 @@ def heuristic_parse_email(subject: str, sender: str, body: str) -> ExtractedEmai
     elif "linkedin" in sender.lower() or "linkedin" in subj_lower:
         platform = "LinkedIn"
     location = None
-    full_text = f"{subject} {snippet}".lower()
+    full_text = f"{subject} {body}".lower()
     if "remote" in full_text:
         location = "Remote"
     elif "hybrid" in full_text:
@@ -176,6 +181,8 @@ def heuristic_parse_email(subject: str, sender: str, body: str) -> ExtractedEmai
         platform=platform,
         application_status=status_str,
         location=location,
+        offer=(status_str == "offered"),
+        rejection=(status_str == "rejected"),
         confidence_score=0.85
     )
 

@@ -22,7 +22,8 @@ import {
   Filter,
   Zap,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -196,14 +197,38 @@ export default function Application() {
     }
   };
 
+  const NON_JOB_TITLE_KEYWORDS = [
+    "trending internships",
+    "new jobs for",
+    "jobs matching",
+    "recommended jobs",
+    "based on your profile",
+    "job alert",
+    "jobs alert",
+    "assignment from",
+    "digest",
+    "weekly roundup",
+    "daily digest",
+    "top picks"
+  ];
+
   // Filters Chains
   const filteredApplications = applications.filter(app => {
+    const titleLower = (app.title || '').toLowerCase();
+    const isGenericAlert = NON_JOB_TITLE_KEYWORDS.some(kw => titleLower.includes(kw));
+    if (isGenericAlert) return false;
+
     const matchSearch = (app.company || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (app.title || '').toLowerCase().includes(searchTerm.toLowerCase());
+                        titleLower.includes(searchTerm.toLowerCase());
     const matchPlatform = selectedPlatform === "All" || (app.source && app.source.toLowerCase().includes(selectedPlatform.toLowerCase()));
     
     const normStatus = normalizeStatus(app.status);
-    const matchStatus = selectedStatus === "All" || normStatus === normalizeStatus(selectedStatus);
+    let matchStatus = true;
+    if (selectedStatus === "actually_applied") {
+      matchStatus = normStatus !== "wishlist";
+    } else if (selectedStatus !== "All") {
+      matchStatus = normStatus === normalizeStatus(selectedStatus);
+    }
 
     const remoteType = getRemoteType(app.location);
     const matchRemote = selectedRemote === "All" || remoteType === selectedRemote;
@@ -330,11 +355,12 @@ export default function Application() {
       {/* Stage Category Quick Tabs Bar */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
-          { id: "All", label: "All Submitted", count: applications.length, color: "bg-brand-950 text-white" },
+          { id: "All", label: "All Total", count: applications.length, color: "bg-brand-950 text-white" },
+          { id: "actually_applied", label: "Actually Applied", count: applications.filter(a => normalizeStatus(a.status) !== "wishlist").length, color: "bg-emerald-600 text-white" },
           { id: "applied", label: "Applied", count: applications.filter(a => normalizeStatus(a.status) === "applied").length, color: "bg-amber-500 text-white" },
           { id: "interview", label: "Interviewing", count: applications.filter(a => normalizeStatus(a.status) === "interview").length, color: "bg-blue-500 text-white" },
           { id: "offer", label: "Offers", count: applications.filter(a => normalizeStatus(a.status) === "offer").length, color: "bg-emerald-500 text-white" },
-          { id: "wishlist", label: "Wishlist", count: applications.filter(a => normalizeStatus(a.status) === "wishlist").length, color: "bg-purple-500 text-white" },
+          { id: "wishlist", label: "Wishlist Leads", count: applications.filter(a => normalizeStatus(a.status) === "wishlist").length, color: "bg-purple-500 text-white" },
           { id: "rejected", label: "Rejected", count: applications.filter(a => normalizeStatus(a.status) === "rejected").length, color: "bg-stone-500 text-white" },
         ].map((tab) => {
           const isActive = selectedStatus === tab.id;

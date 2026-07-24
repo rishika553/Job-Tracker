@@ -20,4 +20,9 @@ export const gmailApi = {
     const response = await api.get(`/gmail/accounts/${accountId}/emails`);
     return response.data;
   },
+
+  fetchEmailDetails: async (accountId, messageId) => {
+    const response = await api.get(`/gmail/accounts/${accountId}/emails/${messageId}`);
+    return response.data;
+  },
 };

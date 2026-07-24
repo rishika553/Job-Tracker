@@ -87,6 +87,13 @@ async def sync_account_gmail_emails(
         subject = msg_details.get("subject", "")
         sender = msg_details.get("sender", "")
         snippet = msg_details.get("snippet", "")
+        email_date_str = msg_details.get("date", "")
+
+        from email.utils import parsedate_to_datetime
+        try:
+            received_at = parsedate_to_datetime(email_date_str) if email_date_str else now
+        except Exception:
+            received_at = now
 
         # 4. Save raw EmailMessage record in PostgreSQL
         email_record = await email_repo.create(
@@ -97,7 +104,7 @@ async def sync_account_gmail_emails(
                 "subject": subject,
                 "sender": sender,
                 "snippet": snippet,
-                "received_at": now,
+                "received_at": received_at,
                 "processed_at": now,
                 "ai_analysis_status": "pending",
             }
@@ -112,7 +119,13 @@ async def sync_account_gmail_emails(
             # 6. Parse AI details via AIEmailParserService
             extracted = await parser_service.parse_email_message(email_record.id)
 
-            if extracted and extracted.company:
+            # ONLY create JobApplication if extracted data indicates an actual applied application lifecycle action
+            valid_statuses = ["applied", "interviewing", "interview", "offered", "offer", "rejected", "assessment"]
+            is_actual_application = extracted and extracted.company and (
+                (extracted.application_status in valid_statuses) or extracted.offer or extracted.rejection or extracted.interview_date
+            )
+
+            if is_actual_application:
                 # Resolve/Create Company
                 company = await company_service.create_company(
                     CompanyCreate(name=extracted.company)

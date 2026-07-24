@@ -104,11 +104,11 @@ class AuthService:
 
     async def process_google_oauth(
         self, google_id: str, email: str, name: str
-    ) -> User:
-        """Process Google login: link to existing account or sign up a new user."""
+    ) -> tuple[User, bool]:
+        """Process Google login: link to existing account or sign up a new user. Returns (User, is_new_user)."""
         user = await self.user_repo.get_by_google_id(google_id)
         if user:
-            return user
+            return user, False
 
         # Check by email to prevent duplicate accounts and support account linking
         user = await self.user_repo.get_by_email(email)
@@ -116,12 +116,12 @@ class AuthService:
             user = await self.user_repo.update(
                 db_obj=user, obj_in={"google_id": google_id}
             )
-            return user
+            return user, False
 
         # Create new user for first-time Google sign-ups
         user_in = UserCreate(email=email, full_name=name, google_id=google_id)
         user = await self.register_user(user_in)
-        return user
+        return user, True
 
     async def create_session(self, user_id: uuid.UUID) -> dict:
         """Generate access and refresh tokens, saving the refresh token record to database."""

@@ -18,11 +18,15 @@ import {
   AlertCircle,
   ToggleLeft,
   Trash2,
-  Loader2
+  Loader2,
+  X,
+  ExternalLink,
+  FileText
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Notifications() {
-  const { applications, syncedEmails, activities, gmailStatus, loadDemoData } = useJobTracker();
+  const { applications, syncedEmails, activities, gmailStatus, syncGmail, loadDemoData } = useJobTracker();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -77,6 +81,9 @@ export default function Notifications() {
     try {
       const data = await notificationsApi.listNotifications();
       setNotifications(data);
+      if (gmailStatus?.connected && (!syncedEmails || syncedEmails.length === 0)) {
+        syncGmail();
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load notifications.");
     } finally {
@@ -88,22 +95,37 @@ export default function Notifications() {
     fetchNotifications();
   }, []);
 
+  // Helper to convert date strings into numeric timestamps for reverse chronological sorting
+  const getSortTime = (dateStr) => {
+    if (!dateStr) return 0;
+    const parsed = new Date(dateStr).getTime();
+    if (!isNaN(parsed)) return parsed;
+    const lower = dateStr.toLowerCase();
+    const now = Date.now();
+    if (lower.includes("today")) return now;
+    if (lower.includes("yesterday")) return now - 86400000;
+    if (lower.includes("recent")) return now - 3600000;
+    return 0;
+  };
+
   // Dynamic notifications generation from context applications & synced emails
   const notificationsList = useMemo(() => {
     const list = [];
     
-    // 1. Synced Gmail Inbox Messages
+    // 1. Synced Gmail Inbox Messages (Newest first)
     (syncedEmails || []).forEach((email, idx) => {
       const sender = email.sender || email.from || "Gmail";
       const subject = email.subject || "(No subject)";
       const body = email.body || email.snippet || subject;
+      const rawDate = email.date || "Recent";
       list.push({
         id: `email-${email.id || idx}`,
         category: "message",
         title: sender,
         details: subject,
         body: body,
-        timestamp: email.date || "Recent",
+        timestamp: rawDate,
+        sortTime: getSortTime(rawDate),
         read: false,
         actionLabel: "Read Message",
         link: null
@@ -113,13 +135,15 @@ export default function Notifications() {
     // 2. Synced Activities Feed
     (activities || []).forEach((act) => {
       if (!list.some(item => item.id === `act-${act.id}`)) {
+        const rawTime = act.time || "Recent";
         list.push({
           id: `act-${act.id}`,
           category: act.type === "sync" ? "message" : "update",
           title: act.sender || act.text || "System Log",
           details: act.subject || act.text || "Activity tracked",
           body: act.text || act.subject || "Synced log message.",
-          timestamp: act.time || "Recent",
+          timestamp: rawTime,
+          sortTime: getSortTime(rawTime),
           read: true,
           actionLabel: "View Activity",
           link: null
@@ -129,13 +153,14 @@ export default function Notifications() {
 
     applications.forEach(app => {
       // Interview Reminders
-      if (app.status === "interview") {
+      if (app.status === "interview" || app.status === "interviewing") {
         list.push({
           id: `int-${app.id}`,
           category: "interview",
           title: `Technical Round: ${app.company}`,
           details: `Panel interview scheduled for ${app.role} role. Video meeting details are updated.`,
           timestamp: "Today, 2:00 PM",
+          sortTime: Date.now(),
           read: false,
           actionLabel: "Open Teams Link",
           link: "/calendar"
@@ -148,20 +173,22 @@ export default function Notifications() {
         category: "update",
         title: `${app.company} Application Update`,
         details: `Candidacy status moved to ${app.status.toUpperCase()} for ${app.role}.`,
-        timestamp: "Yesterday",
+        timestamp: app.appliedDate || "Recently",
+        sortTime: getSortTime(app.appliedDate) || (Date.now() - 86400000),
         read: false,
         actionLabel: "Inspect Details",
         link: `/applications/${app.id}`
       });
 
       // Offers
-      if (app.status === "offer") {
+      if (app.status === "offer" || app.status === "offered") {
         list.push({
           id: `off-${app.id}`,
           category: "offer",
           title: `Offer Extended by ${app.company}!`,
           details: `Congratulations! Compensation packages for ${app.role} have been drafted. Review details below.`,
-          timestamp: "July 12",
+          timestamp: "Recent",
+          sortTime: Date.now() - 172800000,
           read: true,
           actionLabel: "View Offer Details",
           link: `/applications/${app.id}`
@@ -169,14 +196,16 @@ export default function Notifications() {
       }
     });
 
-    // Apply read overrides from state
-    return list.map(item => {
+    // Apply read overrides and sort reverse-chronologically (newest at top)
+    const processed = list.map(item => {
       const isOverridden = readStateOverrides[item.id] !== undefined;
       return {
         ...item,
         read: isOverridden ? readStateOverrides[item.id] : item.read
       };
     });
+
+    return processed.sort((a, b) => (b.sortTime || 0) - (a.sortTime || 0));
   }, [applications, syncedEmails, activities, gmailStatus, readStateOverrides]);
 
   // Categories list metadata
@@ -243,7 +272,6 @@ export default function Notifications() {
     <div className="space-y-6 pb-12 animate-fade-in select-none">
       
 
-
       {/* Heading Block */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
         <div>
@@ -259,6 +287,15 @@ export default function Notifications() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={syncGmail}
+            disabled={gmailStatus.isScanning}
+            className="flex items-center gap-1.5 px-3 py-2 border border-brand-200 hover:border-brand-300 rounded-xl text-xs font-bold text-brand-700 bg-white hover:bg-brand-50 transition cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={gmailStatus.isScanning ? "animate-spin" : ""} />
+            <span>{gmailStatus.isScanning ? "Scanning..." : "Sync Inbox"}</span>
+          </button>
+
           {/* Timeline vs Card View Switcher */}
           <div className="flex bg-brand-50 border border-brand-200 rounded-xl p-1 shrink-0">
             <button
@@ -365,7 +402,10 @@ export default function Notifications() {
                     return (
                       <div
                         key={notif.id}
-                        onClick={() => setSelectedNotifId(notif.id)}
+                        onClick={() => {
+                          setSelectedNotifId(notif.id);
+                          handleMarkAsRead(notif.id);
+                        }}
                         className={`p-4 border rounded-2xl transition cursor-pointer relative flex justify-between items-start ${
                           isActive 
                             ? "border-amber-400 bg-amber-50/5 ring-1 ring-amber-400/10 shadow-3xs" 
@@ -395,45 +435,47 @@ export default function Notifications() {
                   })}
                 </div>
 
-                {/* Details view panel (Slack/Linear right drawer layout) */}
-                <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium space-y-4">
+                {/* Details view panel beside the list */}
+                <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium space-y-4 sticky top-4">
                   {activeNotif ? (
                     <>
-                      <div className="flex justify-between items-start gap-4 flex-wrap border-b border-brand-100/50 pb-3.5">
+                      <div className="flex justify-between items-start gap-4 flex-wrap border-b border-brand-100/60 pb-3.5">
                         <div>
-                          <span className={`inline-block border px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${getCategoryColor(activeNotif.category)}`}>
+                          <span className={`inline-block border px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider ${getCategoryColor(activeNotif.category)}`}>
                             {activeNotif.category}
                           </span>
-                          <span className="text-[10px] text-brand-400 font-bold font-mono block mt-2">{activeNotif.timestamp}</span>
+                          <span className="text-xs text-brand-400 font-bold font-mono block mt-2">{activeNotif.timestamp}</span>
                         </div>
 
                         {!activeNotif.read && (
                           <button
                             onClick={() => handleMarkAsRead(activeNotif.id)}
-                            className="flex items-center gap-1.5 px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-[10px] font-bold transition cursor-pointer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition cursor-pointer"
                           >
-                            <Check size={11} />
+                            <Check size={13} />
                             <span>Mark read</span>
                           </button>
                         )}
                       </div>
 
-                      <div className="space-y-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-brand-950 text-amber-400 font-extrabold text-xs flex items-center justify-center uppercase shrink-0">
-                            {activeNotif.title[0] || 'M'}
-                          </div>
-                          <div>
-                            <h3 className="text-xs font-bold text-brand-900 leading-tight">{activeNotif.title}</h3>
-                            <span className="text-[10px] text-brand-400 font-mono">{activeNotif.timestamp}</span>
+                      <div className="space-y-4 text-left">
+                        {/* Subject & Sender Header */}
+                        <div className="space-y-2 border-b border-brand-100 pb-3">
+                          <h3 className="text-sm md:text-base font-black text-brand-950 leading-snug">{activeNotif.details}</h3>
+                          <div className="flex items-center gap-3 pt-1">
+                            <div className="w-10 h-10 rounded-full bg-brand-950 text-amber-400 font-black text-xs flex items-center justify-center uppercase shrink-0 shadow-3xs">
+                              {(activeNotif.title || 'M')[0]}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-brand-900">{activeNotif.title}</h4>
+                              <p className="text-[10px] text-brand-450 font-mono">From: {activeNotif.title}</p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="bg-brand-50/40 border border-brand-100 rounded-xl p-4 space-y-2 text-left">
-                          <h4 className="text-xs font-extrabold text-brand-950 leading-snug">{activeNotif.details}</h4>
-                          <div className="text-xs text-brand-700 leading-relaxed font-sans whitespace-pre-wrap pt-2.5 border-t border-brand-150/60 max-h-[420px] overflow-y-auto font-normal">
-                            {renderTextWithLinks(activeNotif.body || activeNotif.details)}
-                          </div>
+                        {/* Full Email Message Content */}
+                        <div className="bg-brand-50/20 border border-brand-100 rounded-xl p-4.5 text-xs text-brand-800 leading-relaxed font-sans whitespace-pre-wrap max-h-[480px] overflow-y-auto">
+                          {renderTextWithLinks(activeNotif.body || activeNotif.details)}
                         </div>
                       </div>
 
@@ -441,17 +483,17 @@ export default function Notifications() {
                         <div className="pt-3 border-t border-brand-100/50 flex justify-end">
                           <button
                             onClick={() => navigate(activeNotif.link)}
-                            className="flex items-center gap-1 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                           >
-                            <span>{activeNotif.actionLabel}</span>
+                            <span>{activeNotif.actionLabel || "View Details"}</span>
                             <ChevronRight size={13} />
                           </button>
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="text-center text-xs text-brand-450 py-12">
-                      Select a notification to view actions
+                    <div className="text-center text-xs text-brand-450 py-16">
+                      Click any email message on the left to read its full content here
                     </div>
                   )}
                 </div>
@@ -475,37 +517,39 @@ export default function Notifications() {
                         !notif.read ? "bg-amber-400 shadow-3xs" : "bg-brand-200"
                       }`} />
 
-                      <div className="flex-1 bg-brand-50/5 hover:bg-brand-50/10 border border-brand-150 rounded-2xl p-4 transition text-left flex justify-between items-start flex-wrap gap-4">
-                        <div className="min-w-0 pr-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`inline-block border px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider ${getCategoryColor(notif.category)}`}>
-                              {notif.category}
-                            </span>
-                            <span className="text-[9px] text-brand-400 font-bold font-mono">{notif.timestamp}</span>
+                      <div 
+                        onClick={() => {
+                          handleMarkAsRead(notif.id);
+                          setSelectedNotifId(selectedNotifId === notif.id ? null : notif.id);
+                        }}
+                        className={`flex-1 border rounded-2xl p-4 transition text-left flex flex-col gap-3 cursor-pointer ${
+                          selectedNotifId === notif.id ? "bg-amber-50/10 border-amber-400 ring-1 ring-amber-400/20 shadow-3xs" : "bg-brand-50/5 hover:bg-brand-50/10 border-brand-150"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-block border px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider ${getCategoryColor(notif.category)}`}>
+                                {notif.category}
+                              </span>
+                              <span className="text-[9px] text-brand-400 font-bold font-mono">{notif.timestamp}</span>
+                            </div>
+
+                            <h4 className="text-xs font-bold text-brand-900 mt-2">{notif.title}</h4>
+                            <p className="text-[10px] text-brand-450 mt-1">{notif.details}</p>
                           </div>
 
-                          <h4 className="text-xs font-bold text-brand-900 mt-2">{notif.title}</h4>
-                          <p className="text-[10px] text-brand-450 mt-1">{notif.details}</p>
+                          {!notif.read && (
+                            <span className="w-2.5 h-2.5 bg-amber-500 rounded-full shrink-0 shadow-3xs mt-1" />
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!notif.read && (
-                            <button
-                              onClick={() => handleMarkAsRead(notif.id)}
-                              className="p-1 hover:bg-brand-50 rounded text-brand-400 hover:text-brand-700 transition"
-                              title="Mark read"
-                            >
-                              <Check size={14} />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => navigate(notif.link)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-[10px] font-bold transition shadow-sm cursor-pointer"
-                          >
-                            <span>{notif.actionLabel}</span>
-                            <ChevronRight size={11} />
-                          </button>
-                        </div>
+                        {/* Full Email Text on Click */}
+                        {selectedNotifId === notif.id && (
+                          <div className="pt-3 border-t border-brand-150 text-xs text-brand-700 font-sans whitespace-pre-wrap leading-relaxed">
+                            {renderTextWithLinks(notif.body || notif.details)}
+                          </div>
+                        )}
                       </div>
 
                     </div>

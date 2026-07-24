@@ -1,453 +1,673 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { motion } from "framer-motion";
 import { 
   UploadCloud, 
-  Download, 
   Sparkles, 
-  Trash2, 
   CheckCircle2, 
+  AlertTriangle, 
   FileText, 
-  History, 
-  Layout, 
-  Eye, 
-  AlertCircle,
-  ChevronRight
+  Download, 
+  Layers, 
+  Zap, 
+  ShieldCheck, 
+  TrendingUp, 
+  Check, 
+  X, 
+  ChevronRight, 
+  Code2, 
+  Loader2,
+  FileCode,
+  Briefcase,
+  Target
 } from "lucide-react";
+import { resumeApi } from "../services/resumeApi";
 
-// Mock templates available for download
-const RESUME_TEMPLATES = [
-  { id: "t1", name: "Modern Tech Lead", layout: "Single-column minimalist layout tailored for engineers.", color: "border-amber-400 bg-amber-50/20" },
-  { id: "t2", name: "Executive Suite", layout: "Two-column design focusing on leadership metrics and OKRs.", color: "border-brand-200 hover:border-brand-300" },
-  { id: "t3", name: "Creative Minimal", layout: "Sleek serif-based typography with left-border dividers.", color: "border-brand-200 hover:border-brand-300" }
+// Pre-defined Target Role Options
+const TARGET_ROLES = [
+  "Full Stack Developer",
+  "Software Engineer",
+  "Frontend Developer",
+  "Backend Developer",
+  "AI Engineer",
+  "Machine Learning Engineer",
+  "Data Analyst",
+  "Cloud Engineer",
+  "DevOps Engineer"
+];
+
+// Pre-defined Loading Stages
+const LOADING_STAGES = [
+  "Uploading Resume...",
+  "Extracting Text via PyMuPDF / python-docx...",
+  "Normalizing Resume Content...",
+  "Invoking AI ATS Analysis...",
+  "Evaluating Target Role Keywords...",
+  "Generating Section Suggestions...",
+  "Finalizing Dynamic ATS Score..."
 ];
 
 export default function Resume() {
-  // Start with empty resume arrays to remove pre-seeded dummy data
-  const [resumes, setResumes] = useState([]);
-  const [activeResumeId, setActiveResumeId] = useState(null);
-  const [historyLogs, setHistoryLogs] = useState([]);
+  // File & Upload state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [targetRole, setTargetRole] = useState("Full Stack Developer");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [loadingStageIdx, setLoadingStageIdx] = useState(0);
+  const [errorMsg, setErrorMsg] = useState(null);
 
-  // Upload simulation state
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFileName, setUploadedFileName] = useState("");
+  // Analysis result state
+  const [analysisResult, setAnalysisResult] = useState(null);
 
-  const activeResume = resumes.find(r => r.id === activeResumeId);
+  const fileInputRef = useRef(null);
 
-  // Dynamic Suggestion generation dependent on selected version's score
-  const getAISuggestions = (score) => {
-    if (!score) return [];
-    if (score >= 90) {
-      return [
-        { title: "Formatting Clean", desc: "No WAI-ARIA conflicts found. Perfect baseline grids.", resolved: true },
-        { title: "High Impact Verbs", desc: "Using descriptive words like 'boosted', 'led', and 'refactored'.", resolved: true },
-        { title: "Keywords Match", desc: "ATS parsed code frameworks, lazy-loads, and developer terms correctly.", resolved: true }
-      ];
-    }
-    if (score >= 70 && score < 90) {
-      return [
-        { title: "Keyword Density", desc: "Incorporate more developer terms (e.g. REST APIs, TypeScript, Webpack) to improve match rates.", resolved: false },
-        { title: "Quantify Accomplishments", desc: "Include specific numbers (e.g. +24% performance boost) instead of qualitative terms.", resolved: false },
-        { title: "Clean Layout", desc: "No formatting bugs found. Font sizing hierarchy is correct.", resolved: true }
-      ];
-    }
-    return [
-      { title: "Missing Metrics", desc: "Zero quantitative metrics found. Add numbers demonstrating actual business impact.", resolved: false },
-      { title: "Structure Overhaul", desc: "Slight column overlap detected. Rework spacing templates to avoid parser collisions.", resolved: false },
-      { title: "Action Verbs Required", desc: "Replace generic verbs like 'helped', 'assisted' with strong terms like 'engineered', 'spearheaded'.", resolved: false }
-    ];
-  };
-
-  const suggestions = activeResume ? getAISuggestions(activeResume.score) : [];
-
-  // Simulated File Upload handler
-  const handleUploadSimulation = (e) => {
+  // Handle Drag & Drop
+  const handleDragOver = (e) => {
     e.preventDefault();
-    if (!uploadedFileName.trim()) return;
-
-    setIsUploading(true);
-    setTimeout(() => {
-      const generatedScore = Math.floor(Math.random() * (98 - 65 + 1)) + 65; // Generate 65 - 98
-      const newVerNum = resumes.length + 1;
-      const fileId = `v${newVerNum}`;
-
-      const newFile = {
-        id: fileId,
-        name: uploadedFileName.endsWith(".pdf") ? uploadedFileName.trim() : `${uploadedFileName.trim()}.pdf`,
-        version: `V${newVerNum} Custom`,
-        score: generatedScore,
-        date: new Date().toISOString().split("T")[0],
-        size: "128 KB",
-        tagline: "Custom Tailored Upload",
-        summary: "Ambitious Frontend Developer with expertise in scalable client components, user experiences, and automated test libraries.",
-        experience: [
-          { role: "Developer", company: "Sandbox Lab", period: "2026", points: ["Successfully uploaded document, checking system parameters.", "Implemented local state components with automated re-renders."] }
-        ]
-      };
-
-      setResumes([newFile, ...resumes]);
-      setActiveResumeId(fileId);
-
-      // Add to logs
-      setHistoryLogs([
-        { 
-          id: `h${Date.now()}`, 
-          date: newFile.date, 
-          action: `${newFile.name} uploaded manually`, 
-          size: newFile.size, 
-          score: newFile.score 
-        },
-        ...historyLogs
-      ]);
-
-      setIsUploading(false);
-      setUploadedFileName("");
-    }, 800);
+    setIsDragOver(true);
   };
 
-  const handleDelete = (id, e) => {
-    e.stopPropagation();
-    const remaining = resumes.filter(r => r.id !== id);
-    setResumes(remaining);
-    if (activeResumeId === id) {
-      setActiveResumeId(remaining.length > 0 ? remaining[0].id : null);
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      validateAndSetFile(e.dataTransfer.files[0]);
     }
   };
 
-  // Get color for ATS radial circle dials
+  const handleFileSelect = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      validateAndSetFile(e.target.files[0]);
+    }
+  };
+
+  const validateAndSetFile = (file) => {
+    setErrorMsg(null);
+    const validTypes = [
+      "application/pdf", 
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "text/plain"
+    ];
+    const extension = file.name.split(".").pop().toLowerCase();
+    
+    if (validTypes.includes(file.type) || ["pdf", "docx", "txt"].includes(extension)) {
+      setSelectedFile(file);
+    } else {
+      setErrorMsg("Please upload a valid PDF, DOCX, or TXT document.");
+    }
+  };
+
+  // Submit Analysis
+  const handleAnalyzeResume = async () => {
+    if (!selectedFile) {
+      setErrorMsg("Please select or drop a resume file first.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setErrorMsg(null);
+    setLoadingStageIdx(0);
+
+    const stageInterval = setInterval(() => {
+      setLoadingStageIdx((prev) => {
+        if (prev < LOADING_STAGES.length - 1) return prev + 1;
+        return prev;
+      });
+    }, 600);
+
+    try {
+      const res = await resumeApi.analyzeAts(selectedFile, targetRole);
+      clearInterval(stageInterval);
+
+      if (res && res.success && res.analysis) {
+        setAnalysisResult(res.analysis);
+      } else {
+        throw new Error("Failed to receive structured analysis from backend.");
+      }
+    } catch (err) {
+      clearInterval(stageInterval);
+      console.error("ATS Analysis Error:", err);
+      setErrorMsg("Failed to analyze resume. Please ensure the backend server is running.");
+      setAnalysisResult(null);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // PDF Report Print
+  const handleDownloadReport = () => {
+    window.print();
+  };
+
+  // Score color helper
   const getScoreColor = (score) => {
-    if (!score) return "text-stone-300 stroke-stone-300";
-    if (score >= 90) return "text-emerald-500 stroke-emerald-500";
-    if (score >= 70) return "text-amber-500 stroke-amber-500";
-    return "text-rose-500 stroke-rose-500";
+    if (score >= 80) return { text: "text-emerald-600", bg: "bg-emerald-500", ring: "stroke-emerald-500", border: "border-emerald-200 bg-emerald-50/30" };
+    if (score >= 60) return { text: "text-amber-500", bg: "bg-amber-400", ring: "stroke-amber-400", border: "border-amber-200 bg-amber-50/30" };
+    return { text: "text-rose-600", bg: "bg-rose-500", ring: "stroke-rose-500", border: "border-rose-200 bg-rose-50/30" };
   };
 
   return (
-    <div className="space-y-6 pb-16 animate-fade-in select-none">
-      
-      {/* CRM Heading Block */}
-      <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium">
-        <h1 className="text-xl md:text-2xl font-black text-brand-950 tracking-tight flex items-center gap-2">
-          <span>Resume Management</span>
-          <span className="text-xs font-extrabold text-brand-500 bg-brand-100 px-2 py-0.5 rounded-full">
-            {resumes.length} versions
-          </span>
-        </h1>
-        <p className="text-xs text-brand-500 mt-1 max-w-2xl">
-          Upload tailored PDF files, inspect ATS parsing scores, review feedback suggestions, and manage document versions.
-        </p>
-      </div>
+    <div className="min-h-screen bg-slate-50/50 pb-24 text-slate-900 font-sans print:bg-white print:p-0">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-8">
 
-      {/* Grid Workspace Layout */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
-        
-        {/* Left Column: Versions list & ATS dials */}
-        <div className="space-y-6 xl:col-span-1">
+        {/* 1. Hero Section */}
+        <div className="text-center space-y-3 print:hidden">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-brand-950 text-amber-400 text-xs font-black tracking-wider uppercase shadow-xs">
+            <Sparkles size={13} className="text-amber-400 animate-pulse" />
+            <span>AI RESUME ATS ANALYZER</span>
+          </div>
           
-          {/* ATS Dial Scorecard */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium text-center space-y-4">
-            <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider pl-1">ATS Scanner Score</h3>
-            
-            {/* Radial dial block */}
-            <div className="relative w-32 h-32 mx-auto flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="52"
-                  className="stroke-stone-100 fill-none"
-                  strokeWidth="8"
-                />
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="52"
-                  className={`fill-none transition-all duration-500 ${getScoreColor(activeResume?.score)}`}
-                  strokeWidth="8"
-                  strokeDasharray="326.7"
-                  strokeDashoffset={activeResume ? 326.7 - (326.7 * activeResume.score) / 100 : 326.7}
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-3xl font-black text-brand-950 font-mono tracking-tight">
-                  {activeResume ? activeResume.score : "—"}
-                </span>
-                <span className="text-[9px] font-extrabold text-brand-400 uppercase tracking-widest mt-0.5">Match %</span>
-              </div>
-            </div>
-
-            <div className="text-xs text-brand-655 leading-normal">
-              {activeResume ? (
-                <>
-                  Rating: <span className="font-bold text-brand-950">{activeResume.score >= 90 ? "Excellent Match" : activeResume.score >= 70 ? "Good Match" : "Weak Match"}</span>
-                  <p className="text-[10px] text-brand-400 mt-1">Stripe ATS Parser (v1.2) matches</p>
-                </>
-              ) : (
-                <span className="text-brand-450">No document selected. Upload a file below to run scan.</span>
-              )}
-            </div>
-          </div>
-
-          {/* Uploaded Resumes Versions */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
-            <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-4">Resume Versions</h3>
-            
-            {resumes.length > 0 ? (
-              <div className="space-y-3">
-                {resumes.map((res) => {
-                  const isActive = res.id === activeResumeId;
-                  return (
-                    <div
-                      key={res.id}
-                      onClick={() => setActiveResumeId(res.id)}
-                      className={`p-3 border rounded-xl transition cursor-pointer relative group flex justify-between items-start ${
-                        isActive 
-                          ? "border-amber-400 bg-amber-50/5 ring-1 ring-amber-400/10 shadow-3xs" 
-                          : "border-brand-100 hover:border-brand-200 bg-white"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-extrabold text-brand-500 uppercase">{res.version}</span>
-                          {res.score >= 90 && (
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                          )}
-                        </div>
-                        <h4 className="text-xs font-bold text-brand-900 truncate mt-1">{res.name}</h4>
-                        <p className="text-[9px] text-brand-400 font-bold font-mono mt-0.5">{res.date} • {res.size}</p>
-                      </div>
-
-                      <button
-                        onClick={(e) => handleDelete(res.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-brand-50 rounded text-brand-400 hover:text-rose-600 transition"
-                        title="Delete version"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-brand-450 border border-dashed border-brand-150 rounded-xl bg-brand-50/10">
-                No versions uploaded
-              </div>
-            )}
-          </div>
-
-          {/* Upload Resumes Simulation form */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
-            <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider mb-3">Upload Resume</h3>
-            
-            <form onSubmit={handleUploadSimulation} className="space-y-3 text-xs">
-              <div className="border border-dashed border-brand-200 rounded-xl p-4 text-center bg-brand-50/10 hover:bg-brand-50/20 transition cursor-pointer relative">
-                <UploadCloud className="w-6 h-6 text-brand-400 mx-auto mb-2" />
-                <span className="font-bold text-brand-700 block">Drag & drop PDF files</span>
-                <span className="text-[10px] text-brand-400">or click to browse local files</span>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <input
-                  type="text"
-                  required
-                  placeholder="Rename file (e.g. Resume_Stripe)"
-                  value={uploadedFileName}
-                  onChange={(e) => setUploadedFileName(e.target.value)}
-                  className="border border-brand-200 rounded-xl px-3 py-1.5 text-xs text-brand-800 focus:outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isUploading}
-                className="w-full py-2 bg-brand-950 hover:bg-brand-900 disabled:bg-brand-800 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1.5"
-              >
-                <span>{isUploading ? "Uploading file..." : "Simulate PDF Upload"}</span>
-              </button>
-            </form>
-          </div>
-
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-brand-950">
+            AI Resume ATS Analyzer
+          </h1>
+          
+          <p className="text-sm md:text-base text-brand-500 max-w-2xl mx-auto leading-relaxed font-medium">
+            Upload your resume to extract text dynamically and calculate your individual ATS score, keyword relevance, and section recommendations.
+          </p>
         </div>
 
-        {/* Middle Column: Document Letterhead PDF Mock Preview */}
-        <div className="xl:col-span-2 space-y-4">
+        {/* 2. Resume Upload Section */}
+        <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-6 print:hidden">
           
-          {/* Preview controls */}
-          <div className="flex items-center justify-between bg-white border border-brand-200/60 rounded-2xl p-4 shadow-premium">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-brand-50 border border-brand-200/50 flex items-center justify-center text-brand-850">
-                <Eye size={16} />
-              </div>
-              <h2 className="text-sm font-black text-brand-950 tracking-tight uppercase">Document Preview</h2>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <a 
-                href="file:///C:/Users/Rishika/Desktop/resume.pdf"
-                className="flex items-center gap-1 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-750 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                <Download size={12} />
-                <span>Download PDF</span>
-              </a>
-            </div>
-          </div>
-
-          {/* Letterhead Mock Frame Canvas */}
-          <div className="bg-brand-105 border border-brand-250 rounded-2xl p-8 flex items-center justify-center min-h-[520px] shadow-premium">
-            
-            {activeResume ? (
-              /* Elegant resume paper mockup */
-              <div className="bg-white border border-brand-200/65 shadow-overlay p-8 max-w-md w-full min-h-[480px] text-[9px] font-serif leading-relaxed text-brand-950 space-y-4">
-                
-                {/* Header Letterhead */}
-                <div className="text-center space-y-1 pb-3 border-b border-brand-200">
-                  <h2 className="text-base font-extrabold tracking-wide uppercase">Rishika S.</h2>
-                  <p className="text-[9px] italic font-sans text-brand-500 font-semibold">{activeResume.tagline}</p>
-                  <div className="text-[8px] font-sans text-brand-400 font-bold flex justify-center gap-3">
-                    <span>San Francisco, CA</span>
-                    <span>•</span>
-                    <span>rishika@example.com</span>
-                    <span>•</span>
-                    <span>github.com/rishika553</span>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase font-sans text-brand-800">Professional Summary</h4>
-                  <p className="italic text-brand-655 font-semibold text-justify">
-                    {activeResume.summary}
-                  </p>
-                </div>
-
-                {/* Experience */}
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase font-sans text-brand-800">Professional Experience</h4>
-                  {activeResume.experience.map((exp, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between font-sans text-[8.5px] font-bold text-brand-900">
-                        <span>{exp.role} — {exp.company}</span>
-                        <span className="font-mono text-[8px] font-normal text-brand-500">{exp.period}</span>
-                      </div>
-                      <ul className="list-disc pl-3.5 space-y-0.5 text-brand-600">
-                        {exp.points.map((pt, pIdx) => (
-                          <li key={pIdx} className="text-justify">{pt}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Skills */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-bold tracking-wider uppercase font-sans text-brand-800">Technical Skills</h4>
-                  <p className="font-sans text-[8px] text-brand-600 font-semibold">
-                    <span className="font-bold text-brand-800">Developer Ecosystem:</span> React.js, TypeScript, Tailwind CSS, lazy-loads, accessibility compliance, RESTful Web APIs, Web Performance audits, and unit testing scripts.
-                  </p>
-                </div>
-
-              </div>
-            ) : (
-              <div className="text-center text-xs text-brand-450 max-w-xs space-y-2">
-                <FileText className="w-8 h-8 text-brand-350 mx-auto" />
-                <h4 className="font-bold">No Resume Selected</h4>
-                <p className="leading-relaxed">Please upload or select an active document version on the sidebar to preview the letterhead grids.</p>
-              </div>
-            )}
-
-          </div>
-
-        </div>
-
-        {/* Right Column: AI tips, upload changelogs, templates */}
-        <div className="space-y-6 xl:col-span-1">
-          
-          {/* AI Suggestions Panel */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium space-y-4">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider">AI suggestions</h3>
-            </div>
-            
-            {activeResume ? (
-              <div className="space-y-3.5">
-                {suggestions.map((sug, idx) => (
-                  <div key={idx} className="flex gap-2.5 items-start p-1">
-                    <div className="mt-0.5 shrink-0">
-                      {sug.resolved ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-amber-500" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className={`text-xs font-bold leading-normal ${sug.resolved ? "text-brand-850" : "text-brand-900"}`}>{sug.title}</h4>
-                      <p className="text-[10px] text-brand-450 leading-relaxed mt-0.5">{sug.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-brand-450 leading-relaxed py-2">Select a version to analyze keywords.</p>
-            )}
-          </div>
-
-          {/* Resume templates */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium space-y-4">
-            <div className="flex items-center gap-1.5">
-              <Layout className="w-4 h-4 text-brand-400" />
-              <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider">Templates library</h3>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              {RESUME_TEMPLATES.map(temp => (
-                <div key={temp.id} className={`p-3 border rounded-xl transition cursor-pointer border-brand-100 hover:border-brand-200 bg-white`}>
-                  <h4 className="font-bold text-brand-900">{temp.name}</h4>
-                  <p className="text-[10px] text-brand-450 mt-1 leading-normal">{temp.layout}</p>
-                  <div className="flex justify-end mt-2 pt-2 border-t border-brand-50">
-                    <button className="flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 transition">
-                      <Download size={10} />
-                      <span>Download docx</span>
-                    </button>
-                  </div>
-                </div>
+          {/* Target Role Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-extrabold text-brand-800 uppercase tracking-wider flex items-center gap-2">
+              <Target size={14} className="text-amber-500" />
+              <span>Target Role for ATS Optimization</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {TARGET_ROLES.map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => setTargetRole(role)}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition border text-center truncate ${
+                    targetRole === role 
+                      ? "bg-brand-950 text-amber-400 border-brand-950 shadow-xs" 
+                      : "bg-brand-50/50 text-brand-700 border-brand-200 hover:border-brand-350"
+                  }`}
+                >
+                  {role}
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Resume upload logs history */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium space-y-4">
-            <div className="flex items-center gap-1.5">
-              <History className="w-4 h-4 text-brand-400" />
-              <h3 className="text-xs font-bold text-brand-850 uppercase tracking-wider">Version History</h3>
+          {/* Drag & Drop Upload Zone */}
+          <div 
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-4 ${
+              isDragOver 
+                ? "border-amber-400 bg-amber-50/30 scale-[1.01]" 
+                : selectedFile 
+                ? "border-emerald-300 bg-emerald-50/10" 
+                : "border-brand-200 hover:border-brand-400 hover:bg-brand-50/30"
+            }`}
+          >
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileSelect} 
+              accept=".pdf,.docx,.txt" 
+              className="hidden" 
+            />
+
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition ${
+              selectedFile ? "bg-emerald-100 text-emerald-600" : "bg-amber-50 text-amber-500 border border-amber-200/80"
+            }`}>
+              {selectedFile ? <FileText size={28} /> : <UploadCloud size={28} />}
             </div>
 
-            {historyLogs.length > 0 ? (
-              <div className="space-y-3.5 text-xs max-h-[160px] overflow-y-auto pr-0.5">
-                {historyLogs.map(log => (
-                  <div key={log.id} className="flex gap-2.5 items-start">
-                    <ChevronRight size={12} className="text-brand-350 mt-0.5 shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-brand-900 leading-snug">{log.action}</h4>
-                      <div className="flex items-center gap-2 mt-1 text-[9px] text-brand-400 font-bold font-mono">
-                        <span>{log.date}</span>
-                        <span>•</span>
-                        <span>{log.size}</span>
-                        <span>•</span>
-                        <span className="text-amber-600">Match {log.score}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {selectedFile ? (
+              <div className="space-y-1">
+                <p className="text-sm font-black text-brand-950 flex items-center gap-2 justify-center">
+                  <span>{selectedFile.name}</span>
+                  <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-brand-100 text-brand-700">
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                  </span>
+                </p>
+                <p className="text-xs text-emerald-600 font-bold flex items-center justify-center gap-1">
+                  <CheckCircle2 size={13} />
+                  <span>Ready to analyze text against target role: {targetRole}</span>
+                </p>
               </div>
             ) : (
-              <p className="text-xs text-brand-450 leading-relaxed py-2">No history logged yet.</p>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-brand-900">
+                  <span className="text-amber-600 underline underline-offset-2">Click to upload</span> or drag and drop your resume
+                </p>
+                <p className="text-xs text-brand-400 font-medium">
+                  Supports PDF (PyMuPDF / pdfplumber), DOCX (python-docx), or TXT formats
+                </p>
+              </div>
             )}
           </div>
 
+          {/* Error Banner */}
+          {errorMsg && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold flex items-center gap-2">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Analyze Button */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-brand-100">
+            {selectedFile && (
+              <button
+                type="button"
+                onClick={() => { setSelectedFile(null); setAnalysisResult(null); }}
+                className="text-xs text-brand-450 hover:text-rose-600 font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <X size={14} />
+                <span>Remove file</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={!selectedFile || isAnalyzing}
+              onClick={handleAnalyzeResume}
+              className={`w-full sm:w-auto ml-auto px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-md ${
+                !selectedFile || isAnalyzing
+                  ? "bg-brand-200 text-brand-400 cursor-not-allowed"
+                  : "bg-brand-950 hover:bg-brand-900 text-amber-400 cursor-pointer hover:shadow-lg"
+              }`}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 size={16} className="animate-spin text-amber-400" />
+                  <span>Analyzing Resume Text...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} className="text-amber-400" />
+                  <span>Analyze Resume</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Loading Experience Overlay */}
+          {isAnalyzing && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 bg-brand-950 text-white rounded-2xl space-y-4 shadow-xl"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center font-bold text-xs">
+                    <Loader2 size={16} className="animate-spin" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                      {LOADING_STAGES[loadingStageIdx]}
+                    </h4>
+                    <p className="text-[10px] text-brand-300 font-mono">Evaluating {selectedFile?.name} against {targetRole}</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-brand-300">
+                  {Math.round(((loadingStageIdx + 1) / LOADING_STAGES.length) * 100)}%
+                </span>
+              </div>
+
+              <div className="w-full h-2 bg-brand-850 rounded-full overflow-hidden">
+                <motion.div 
+                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${((loadingStageIdx + 1) / LOADING_STAGES.length) * 100}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+            </motion.div>
+          )}
         </div>
 
-      </div>
+        {/* Results Render Area */}
+        {analysisResult && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8 print:space-y-6"
+          >
+            {/* Top Bar for Report Download */}
+            <div className="flex justify-between items-center bg-white border border-brand-200/70 rounded-2xl p-4 shadow-sm print:hidden">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="text-emerald-500" size={18} />
+                <span className="text-xs font-black text-brand-950 uppercase tracking-wider">
+                  Analysis Complete: {selectedFile?.name || "Resume"} ({analysisResult.role_match || targetRole})
+                </span>
+              </div>
 
+              <button
+                onClick={handleDownloadReport}
+                className="flex items-center gap-1.5 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+              >
+                <Download size={14} className="text-amber-400" />
+                <span>Download Analysis Report</span>
+              </button>
+            </div>
+
+            {/* Overall Summary Banner */}
+            {analysisResult.overall_summary && (
+              <div className="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-4 text-xs text-amber-900 font-semibold leading-relaxed">
+                <span className="font-black text-amber-950 block mb-1 uppercase tracking-wider">Analysis Summary</span>
+                {analysisResult.overall_summary}
+              </div>
+            )}
+
+            {/* ATS Score Card & Improvement Potential */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Animated ATS Score Card */}
+              <div className="md:col-span-2 bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium flex flex-col sm:flex-row items-center gap-6 sm:gap-8 relative overflow-hidden">
+                <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle 
+                      cx="50" cy="50" r="42" 
+                      stroke="#f1f5f9" strokeWidth="8" fill="transparent" 
+                    />
+                    <motion.circle 
+                      cx="50" cy="50" r="42" 
+                      strokeWidth="8" 
+                      strokeDasharray="264"
+                      initial={{ strokeDashoffset: 264 }}
+                      animate={{ strokeDashoffset: 264 - (264 * (analysisResult.ats_score || analysisResult.current_score || 0)) / 100 }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
+                      strokeLinecap="round"
+                      fill="transparent" 
+                      className={getScoreColor(analysisResult.ats_score || analysisResult.current_score || 0).ring}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className={`text-4xl font-black font-mono tracking-tight ${getScoreColor(analysisResult.ats_score || analysisResult.current_score || 0).text}`}>
+                      {analysisResult.ats_score || analysisResult.current_score || 0}
+                    </span>
+                    <span className="text-[10px] font-extrabold text-brand-400 uppercase tracking-widest">OUT OF 100</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-center sm:text-left flex-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border border-brand-200/80 bg-brand-50 text-brand-800">
+                    <Briefcase size={13} className="text-amber-500" />
+                    <span>Role Match: {analysisResult.role_match || targetRole}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-brand-950">
+                    ATS Compatibility Score
+                  </h2>
+                  <p className="text-xs text-brand-500 leading-relaxed font-medium">
+                    Evaluated from extracted document text against target requirements, keyword density, section quality, and formatting rules.
+                  </p>
+                </div>
+              </div>
+
+              {/* Improvement Potential Card */}
+              <div className="bg-brand-950 text-white rounded-3xl p-6 sm:p-8 shadow-premium flex flex-col justify-between space-y-4">
+                <div>
+                  <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block">
+                    IMPROVEMENT POTENTIAL
+                  </span>
+                  <h3 className="text-lg font-black text-white mt-1">Score Optimization</h3>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center border-b border-brand-800 pb-2">
+                    <span className="text-xs text-brand-300 font-bold">Current ATS Score</span>
+                    <span className="text-sm font-black font-mono text-white">
+                      {analysisResult.current_score || analysisResult.ats_score || 0}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-b border-brand-800 pb-2">
+                    <span className="text-xs text-brand-300 font-bold">Potential ATS Score</span>
+                    <span className="text-sm font-black font-mono text-emerald-400">
+                      {analysisResult.potential_score || 94}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-xs text-amber-400 font-black">Estimated Boost</span>
+                    <span className="text-base font-black font-mono text-amber-400 flex items-center gap-0.5">
+                      <TrendingUp size={16} />
+                      +{analysisResult.estimated_improvement || 12}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* ATS Breakdown Cards Grid */}
+            {analysisResult.ats_breakdown && (
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-6">
+                <div>
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider flex items-center gap-2">
+                    <Layers size={18} className="text-amber-500" />
+                    <span>ATS Breakdown</span>
+                  </h3>
+                  <p className="text-xs text-brand-500 font-medium mt-1">
+                    Sub-scores calculated directly from your extracted resume text.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {Object.entries(analysisResult.ats_breakdown).map(([key, val]) => (
+                    <div key={key} className="p-4 bg-brand-50/30 border border-brand-150 rounded-2xl space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-brand-800 uppercase tracking-wider capitalize">
+                          {key.replace("_", " ")}
+                        </span>
+                        <span className={`text-xs font-black font-mono ${getScoreColor(val).text}`}>
+                          {val}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-brand-150 rounded-full overflow-hidden">
+                        <motion.div 
+                          className={`h-full rounded-full ${getScoreColor(val).bg}`}
+                          initial={{ width: "0%" }}
+                          animate={{ width: `${val}%` }}
+                          transition={{ duration: 0.8 }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Missing & Recommended Keywords */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Missing ATS Keywords */}
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="text-rose-500" size={18} />
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider">
+                    Missing Keywords
+                  </h3>
+                </div>
+                <p className="text-xs text-brand-500 font-medium">
+                  Keywords absent in your uploaded resume for the <strong>{targetRole}</strong> role profile.
+                </p>
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  {(analysisResult.missing_keywords || []).length > 0 ? (
+                    analysisResult.missing_keywords.map((kw, idx) => (
+                      <span 
+                        key={idx}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-1.5"
+                      >
+                        <X size={12} className="text-rose-500" />
+                        <span>{kw}</span>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-emerald-600 font-bold">No major role keywords missing!</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Recommended Keywords */}
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-4">
+                <div className="flex items-center gap-2">
+                  <Code2 className="text-amber-500" size={18} />
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider">
+                    Recommended Keywords
+                  </h3>
+                </div>
+
+                <p className="text-xs text-brand-500 font-medium">
+                  Keywords found or suggested grouped by technical domain:
+                </p>
+
+                <div className="space-y-3 pt-1">
+                  {Object.entries(analysisResult.recommended_keywords || {}).map(([cat, items]) => (
+                    <div key={cat} className="space-y-1.5">
+                      <span className="text-[10px] font-black text-brand-450 uppercase tracking-wider font-mono">
+                        {cat.replace("_", " ")}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.isArray(items) && items.length > 0 ? (
+                          items.map((item, i) => (
+                            <span 
+                              key={i} 
+                              className="px-2.5 py-1 bg-amber-50 border border-amber-200/80 text-amber-900 text-[11px] font-bold rounded-lg"
+                            >
+                              + {item}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[11px] text-brand-400 font-mono">—</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Strengths & Weaknesses */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Strengths */}
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="text-emerald-500" size={18} />
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider">
+                    Strengths Detected
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {(analysisResult.strengths || []).map((str, idx) => (
+                    <div key={idx} className="p-3.5 bg-emerald-50/40 border border-emerald-200/70 rounded-2xl flex items-start gap-3 text-xs text-brand-850 font-semibold">
+                      <div className="p-1 bg-emerald-500 text-white rounded-lg shrink-0 mt-0.5">
+                        <Check size={11} />
+                      </div>
+                      <span>{str}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Weaknesses */}
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-4">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="text-amber-500" size={18} />
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider">
+                    Areas for Improvement
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {(analysisResult.weaknesses || []).map((wk, idx) => (
+                    <div key={idx} className="p-3.5 bg-amber-50/40 border border-amber-200/70 rounded-2xl flex items-start gap-3 text-xs text-brand-850 font-semibold">
+                      <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-mono font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        !
+                      </span>
+                      <span>{wk}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Section Analysis */}
+            {analysisResult.sections && (
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-6">
+                <div>
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider flex items-center gap-2">
+                    <FileCode size={18} className="text-amber-500" />
+                    <span>Section Evaluations</span>
+                  </h3>
+                  <p className="text-xs text-brand-500 font-medium mt-1">
+                    Quality scores and personalized recommendations per document section.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(analysisResult.sections).map(([secKey, secVal]) => (
+                    <div key={secKey} className="p-5 border border-brand-200/80 rounded-2xl bg-white space-y-3 shadow-2xs">
+                      <div className="flex justify-between items-center border-b border-brand-100 pb-2">
+                        <h4 className="text-xs font-black text-brand-950 uppercase tracking-wider capitalize">{secKey}</h4>
+                        <span className={`text-xs font-black font-mono px-2 py-0.5 rounded border ${getScoreColor(secVal.score || 0).border} ${getScoreColor(secVal.score || 0).text}`}>
+                          {secVal.score || 0}%
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-brand-600 font-medium leading-relaxed">
+                        {secVal.suggestion || "Section structured properly."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ATS Compatibility Checklist */}
+            {analysisResult.ats_compatibility && (
+              <div className="bg-white border border-brand-200/70 rounded-3xl p-6 sm:p-8 shadow-premium space-y-6">
+                <div>
+                  <h3 className="text-base font-black text-brand-950 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck size={18} className="text-emerald-500" />
+                    <span>ATS Compatibility Checklist</span>
+                  </h3>
+                  <p className="text-xs text-brand-500 font-medium mt-1">
+                    Parsing compatibility verification results.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {Object.entries(analysisResult.ats_compatibility).map(([itemKey, passed]) => (
+                    <div key={itemKey} className="p-4 bg-brand-50/20 border border-brand-150 rounded-2xl flex items-center gap-3">
+                      {passed ? (
+                        <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
+                      ) : (
+                        <X size={18} className="text-rose-500 shrink-0" />
+                      )}
+                      <div>
+                        <h4 className="text-xs font-black text-brand-900 capitalize">{itemKey.replace("_", " ")}</h4>
+                        <p className="text-[10px] text-brand-500 font-mono font-bold">
+                          {passed ? "Passed Check" : "Needs Attention"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </motion.div>
+        )}
+
+      </div>
     </div>
   );
 }

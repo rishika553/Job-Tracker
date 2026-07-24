@@ -1,5 +1,5 @@
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Cookie, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.dependencies import get_auth_service, get_current_user
@@ -7,6 +7,8 @@ from app.models.user import User
 from app.schemas.token import Token, TokenRefreshRequest
 from app.schemas.user import UserCreate, UserOut
 from app.services.auth import AuthService
+from app.services.email_service import get_email_service
+from app.core.security import get_password_hash
 from app.core.config import settings
 
 router = APIRouter()
@@ -15,16 +17,34 @@ router = APIRouter()
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register(
     user_in: UserCreate,
+    background_tasks: BackgroundTasks,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Any:
-    """Register a new user account."""
+    """Register a new user account or set password for existing unpassworded account."""
     user = await auth_service.user_repo.get_by_email(user_in.email)
     if user:
+        if not user.hashed_password and user_in.password:
+            hashed_pw = get_password_hash(user_in.password)
+            user = await auth_service.user_repo.update(
+                db_obj=user,
+                obj_in={
+                    "hashed_password": hashed_pw,
+                    "full_name": user_in.full_name or user.full_name,
+                },
+            )
+            return user
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A user with this email already exists",
         )
-    return await auth_service.register_user(user_in)
+
+    new_user = await auth_service.register_user(user_in)
+
+    # Dispatch welcome email asynchronously in background task (Requirements #1 & #8)
+    email_service = get_email_service()
+    background_tasks.add_task(email_service.send_welcome_email, new_user.email, new_user.full_name)
+
+    return new_user
 
 
 @router.post("/login", response_model=Token)
@@ -63,6 +83,7 @@ async def login(
 async def google_auth(
     response: Response,
     body: TokenRefreshRequest,  # Google ID token credential in body
+    background_tasks: BackgroundTasks,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Any:
     """
@@ -71,11 +92,16 @@ async def google_auth(
     """
     profile = await auth_service.verify_google_id_token(body.refresh_token)
 
-    user = await auth_service.process_google_oauth(
+    user, is_new_user = await auth_service.process_google_oauth(
         google_id=profile["google_id"],
         email=profile["email"],
         name=profile["name"],
     )
+
+    if is_new_user:
+        # Dispatch welcome email asynchronously only on first-time signup
+        email_service = get_email_service()
+        background_tasks.add_task(email_service.send_welcome_email, user.email, user.full_name)
 
     session = await auth_service.create_session(user.id)
 

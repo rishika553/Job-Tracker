@@ -67,9 +67,30 @@ export default function Dashboard() {
     setError(null);
     try {
       const data = await dashboardApi.getSummary();
-      setDashboardData(data);
+      const metrics = data.metrics || data;
+      const normalizedApps = (data.recent_applications || []).map((app) => ({
+        ...app,
+        role: app.title || app.role || "Software Engineer",
+        appliedDate: app.applied_at ? app.applied_at.split("T")[0] : (app.appliedDate || ""),
+        tasks: Array.isArray(app.tasks) ? app.tasks : [],
+        logoColor: app.logoColor || "from-brand-600 to-brand-800"
+      }));
+
+      setDashboardData({
+        total_applications: metrics.total_applications || 0,
+        applied_count: metrics.active_applications || metrics.applied_count || 0,
+        interviewing_count: metrics.interviews_scheduled || metrics.interviewing_count || 0,
+        offered_count: metrics.offers_received || metrics.offered_count || 0,
+        rejected_count: metrics.rejections_received || metrics.rejected_count || 0,
+        response_rate: metrics.response_rate_percentage !== undefined 
+          ? (metrics.response_rate_percentage > 1 ? metrics.response_rate_percentage / 100 : metrics.response_rate_percentage) 
+          : (metrics.response_rate || 0),
+        recent_applications: normalizedApps,
+        upcoming_events: data.upcoming_events || [],
+      });
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to load dashboard metrics.");
+      console.error("Dashboard data fetch error:", err);
+      setError(err.response?.data?.detail || err.message || "Failed to load dashboard metrics.");
     } finally {
       setLoading(false);
     }
@@ -79,16 +100,25 @@ export default function Dashboard() {
     fetchDashboardData();
   }, []);
 
-  const applications = dashboardData.recent_applications || [];
-  const totalApps = dashboardData.total_applications;
-  const appliedCount = dashboardData.applied_count;
-  const interviewCount = dashboardData.interviewing_count;
-  const offerCount = dashboardData.offered_count;
-  const responseRate = Math.round(dashboardData.response_rate * 100);
+  // Merge backend applications with local context applications safely
+  const applications = (dashboardData.recent_applications && dashboardData.recent_applications.length > 0)
+    ? dashboardData.recent_applications
+    : (contextApplications || []).map(app => ({
+        ...app,
+        role: app.role || app.title || "Software Engineer",
+        appliedDate: app.appliedDate || (app.applied_at ? app.applied_at.split("T")[0] : ""),
+        tasks: Array.isArray(app.tasks) ? app.tasks : []
+      }));
+
+  const totalApps = dashboardData.total_applications || applications.length;
+  const appliedCount = dashboardData.applied_count || applications.filter(a => a.status === "applied").length;
+  const interviewCount = dashboardData.interviewing_count || applications.filter(a => a.status === "interview" || a.status === "interviewing").length;
+  const offerCount = dashboardData.offered_count || applications.filter(a => a.status === "offer" || a.status === "offered").length;
+  const responseRate = Math.round((dashboardData.response_rate || 0) * 100);
 
   // Derived from context applications (local state, not backend)
-  const wishlistCount = contextApplications.filter(a => a.status === "wishlist").length;
-  const searchStreak = Math.max(1, contextApplications.length > 0 ? 7 : 0);
+  const wishlistCount = (contextApplications || []).filter(a => a.status === "wishlist").length;
+  const searchStreak = Math.max(1, applications.length > 0 ? 7 : 0);
 
   // 15. Dynamic Weekly activity graph calculations
   const getWeeklyActivity = () => {
@@ -112,7 +142,7 @@ export default function Dashboard() {
     });
 
     // Add activity scan touches
-    contextActivities.forEach(() => {
+    (contextActivities || []).forEach(() => {
       const keys = Object.keys(activityMap);
       if (keys.length > 0) {
         const randomKey = keys[Math.floor(Math.random() * keys.length)];
@@ -146,17 +176,17 @@ export default function Dashboard() {
       const isToday = d.toDateString() === today.toDateString();
       
       const hasEvent = applications.some(app => 
-        app.appliedDate === dateStr || 
-        app.tasks.some(t => t.dueDate === dateStr)
+        (app.appliedDate && app.appliedDate === dateStr) || 
+        (Array.isArray(app.tasks) && app.tasks.some(t => t?.dueDate === dateStr))
       );
       
       let type = isToday ? "today" : "";
       if (hasEvent) {
         const hasInterview = applications.some(app => 
-          app.status === "interview" && app.appliedDate === dateStr
+          (app.status === "interview" || app.status === "interviewing") && app.appliedDate === dateStr
         );
         const hasOffer = applications.some(app => 
-          app.status === "offer" && app.appliedDate === dateStr
+          (app.status === "offer" || app.status === "offered") && app.appliedDate === dateStr
         );
         type = hasOffer ? "offer" : hasInterview ? "interview" : "applied";
       }
@@ -177,12 +207,13 @@ export default function Dashboard() {
 
   // 3. Today's focus card calculations
   const getFocusCard = () => {
-    const interviewApp = applications.find(app => app.status === "interview");
+    const interviewApp = applications.find(app => app.status === "interview" || app.status === "interviewing");
     if (interviewApp) {
-      const nextTask = interviewApp.tasks.find(t => !t.completed);
+      const taskList = Array.isArray(interviewApp.tasks) ? interviewApp.tasks : [];
+      const nextTask = taskList.find(t => !t.completed);
       return {
         title: `Technical Prep: ${interviewApp.company}`,
-        subtitle: `Next round: ${interviewApp.role}. Focus on core technical competencies.`,
+        subtitle: `Next round: ${interviewApp.role || interviewApp.title || 'Software Engineer'}. Focus on core technical competencies.`,
         taskText: nextTask ? nextTask.text : "Prepare project showcase & resume highlights.",
         company: interviewApp.company,
         time: "Scheduled",
@@ -190,13 +221,13 @@ export default function Dashboard() {
       };
     }
     
-    const pendingTaskApp = applications.find(app => app.tasks.some(t => !t.completed));
+    const pendingTaskApp = applications.find(app => Array.isArray(app.tasks) && app.tasks.some(t => !t.completed));
     if (pendingTaskApp) {
       const nextTask = pendingTaskApp.tasks.find(t => !t.completed);
       return {
         title: `Pending Task: ${pendingTaskApp.company}`,
         subtitle: `Complete open checklists to advance in the recruitment cycle.`,
-        taskText: nextTask.text,
+        taskText: nextTask ? nextTask.text : "Follow up on application status.",
         company: pendingTaskApp.company,
         time: "Action Needed",
         type: "task"
@@ -331,7 +362,7 @@ export default function Dashboard() {
 
   // 8. Follow-up reminders tasks
   const tasks = applications.flatMap(app => 
-    app.tasks.map(t => ({
+    (Array.isArray(app.tasks) ? app.tasks : []).map(t => ({
       id: t.id,
       text: t.text,
       completed: t.completed,
@@ -351,6 +382,36 @@ export default function Dashboard() {
     }
   };
 
+  const userName = user?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'Rishika';
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8">
+        <Loader2 className="w-10 h-10 animate-spin text-amber-500 mb-4" />
+        <p className="text-slate-400 font-medium text-sm">Loading your application dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mb-4">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Unable to load dashboard</h3>
+        <p className="text-slate-500 text-sm max-w-md mb-6">{error}</p>
+        <button
+          onClick={fetchDashboardData}
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span>Retry Loading</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-16 animate-fade-in">
       
@@ -359,7 +420,7 @@ export default function Dashboard() {
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl md:text-3xl font-black text-brand-950 tracking-tight">
-              Good afternoon, Rishika
+              Good afternoon, {userName}
             </h1>
             
             {/* 16. Streak Tracker */}

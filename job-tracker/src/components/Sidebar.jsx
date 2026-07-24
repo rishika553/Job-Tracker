@@ -15,16 +15,21 @@ import {
   Calendar,
   Building2,
   FileText,
-  Inbox
+  Inbox,
+  LogOut
 } from "lucide-react";
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const { gmailStatus } = useJobTracker();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
   const displayInitial = displayName[0]?.toUpperCase() || "U";
+
+  const handleSignOut = async () => {
+    await logout();
+  };
 
   const navigation = [
     { name: "Dashboard", to: "/", icon: <LayoutDashboard size={18} /> },
@@ -32,7 +37,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
     { name: "Pipeline Board", to: "/pipeline", icon: <Layers size={18} /> },
     { name: "Inbox", to: "/notifications", icon: <Inbox size={18} /> },
     { name: "Companies", to: "/companies", icon: <Building2 size={18} /> },
-    { name: "Resume Manager", to: "/resume", icon: <FileText size={18} /> },
+    { name: "AI Resume ATS", to: "/resume", icon: <FileText size={18} /> },
     { name: "Analytics", to: "/analytics", icon: <TrendingUp size={18} /> },
     { name: "Calendar", to: "/calendar", icon: <Calendar size={18} /> },
     { name: "AI Prep Hub", to: "/ai", icon: <Sparkles size={18} /> },
@@ -126,18 +131,28 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
 
       {/* User Profile Card Footer */}
       <div className="p-4 border-t border-slate-850 bg-[#090908]">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-sm font-bold text-primary-500">
-            {displayInitial}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-sm font-bold text-primary-500 shrink-0">
+              {displayInitial}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-300 truncate">
+                {displayName}
+              </p>
+              <p className="text-xs text-slate-500 truncate">
+                {displayEmail}
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-300 truncate">
-              {displayName}
-            </p>
-            <p className="text-xs text-slate-500 truncate">
-              {displayEmail}
-            </p>
-          </div>
+
+          <button
+            onClick={handleSignOut}
+            className="p-2 hover:bg-slate-800/80 rounded-xl text-slate-400 hover:text-rose-400 transition cursor-pointer shrink-0"
+            title="Sign out of account"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </div>

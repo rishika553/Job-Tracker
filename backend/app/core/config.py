@@ -33,9 +33,15 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "careertrack"
 
     # Google OAuth Credentials
-    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET")
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
     GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+
+    # Email Settings
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "resend")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@aijobtracker.com")
+    APP_URL: str = os.getenv("APP_URL", "http://localhost:5173")
 
     # CORS Origins (JSON list format)
     BACKEND_CORS_ORIGINS: Annotated[

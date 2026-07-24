@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -23,6 +23,7 @@ export default function Login() {
   const [fullName, setFullName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
 
   const { login, register, googleLogin, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
@@ -37,6 +38,18 @@ export default function Login() {
   }, [isAuthenticated, loading, navigate, from]);
 
   // Stable refs — avoids re-initializing the Google SDK on every render
+  const getErrorMessage = (err) => {
+    if (err.response?.data?.detail) {
+      const detail = err.response.data.detail;
+      if (typeof detail === 'string') return detail;
+      if (Array.isArray(detail)) {
+        return detail.map((d) => d.msg || d.detail || JSON.stringify(d)).join(', ');
+      }
+    }
+    return err.message || 'Authentication failed. Please try again.';
+  };
+
+  // Stable refs — avoids re-initializing the Google SDK on every render
   const googleLoginRef = useRef(googleLogin);
   useEffect(() => { googleLoginRef.current = googleLogin; }, [googleLogin]);
 
@@ -48,26 +61,39 @@ export default function Login() {
       await googleLoginRef.current(response.credential);
       // Navigation is handled by the isAuthenticated useEffect above
     } catch (err) {
-      setLocalError(err.message || 'Google sign-in failed. Please try again.');
+      setLocalError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   }, []);
 
-  // Initialize Google Identity SDK once — no renderButton() call, so no iframe/403
-  const googleInitialized = useRef(false);
+  const googleButtonRef = useRef(null);
+
+  // Initialize and render Google Identity SDK button for reliable OAuth popup flow
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || googleInitialized.current) return;
+    if (!GOOGLE_CLIENT_ID) return;
 
     const init = () => {
-      if (!window.google?.accounts?.id) return false;
+      if (!window.google?.accounts?.id || !googleButtonRef.current) return false;
+
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: handleGoogleCredential,
         auto_select: false,
         cancel_on_tap_outside: true,
       });
-      googleInitialized.current = true;
+
+      googleButtonRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: 'filled_black',
+        size: 'large',
+        type: 'standard',
+        text: 'continue_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: 360,
+      });
+
       return true;
     };
 
@@ -75,40 +101,23 @@ export default function Login() {
       const id = window.setInterval(() => { if (init()) window.clearInterval(id); }, 100);
       return () => window.clearInterval(id);
     }
-  }, [handleGoogleCredential]);
-
-  // Trigger Google One Tap / account chooser popup — no iframe rendered in page
-  const handleGoogleSignIn = useCallback(() => {
-    if (!window.google?.accounts?.id) {
-      setLocalError('Google sign-in is not ready yet. Please wait a moment.');
-      return;
-    }
-    window.google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap was suppressed (e.g. user previously dismissed) — show error hint
-        setLocalError(
-          notification.getNotDisplayedReason() === 'opt_out_or_no_session'
-            ? 'No Google account found. Please sign in via Google first.'
-            : 'Google sign-in was dismissed. Please try again.'
-        );
-      }
-    });
-  }, []);
+  }, [handleGoogleCredential, isSignUp]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLocalError('');
+    setToastMessage('');
     setSubmitting(true);
     try {
       if (isSignUp) {
         await register({ email, password, full_name: fullName });
         await login(email, password);
+        setToastMessage("Welcome to AI Job Tracker! We've sent a welcome email to your inbox.");
       } else {
         await login(email, password);
       }
-      // Navigation handled by isAuthenticated useEffect
     } catch (err) {
-      setLocalError(err.message || 'Authentication failed. Please try again.');
+      setLocalError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -117,12 +126,12 @@ export default function Login() {
   // Dev-only mock bypass
   const handleDevGoogleAuth = async () => {
     setLocalError('');
+    setToastMessage('');
     setSubmitting(true);
     try {
       await googleLogin('mock-google-token-12345');
-      // Navigation handled by isAuthenticated useEffect
     } catch (err) {
-      setLocalError(err.message || 'Google login failed.');
+      setLocalError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -152,6 +161,17 @@ export default function Login() {
               : 'Sign in to access your AI application dashboard'}
           </p>
         </div>
+
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3 font-semibold shadow-lg"
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </motion.div>
+        )}
 
         {localError && (
           <motion.div
@@ -240,18 +260,12 @@ export default function Login() {
           <div className="h-px flex-1 bg-slate-800" />
         </div>
 
-        {/* Custom Google button — no GSI renderButton(), no iframe, no 403 */}
+        {/* Official Google GSI popup button */}
         <div className="space-y-3">
           {GOOGLE_CLIENT_ID ? (
-            <button
-              type="button"
-              onClick={handleGoogleSignIn}
-              disabled={submitting}
-              className="w-full py-2.5 px-4 bg-white hover:bg-gray-50 disabled:opacity-50 text-gray-700 font-medium text-sm rounded-xl flex items-center justify-center gap-3 transition-all border border-gray-200 shadow-sm"
-            >
-              <GoogleIcon />
-              <span>Continue with Google</span>
-            </button>
+            <div className="w-full flex justify-center min-h-[44px] overflow-hidden rounded-xl">
+              <div ref={googleButtonRef} className="w-full flex justify-center" />
+            </div>
           ) : null}
 
           {import.meta.env.DEV && (
