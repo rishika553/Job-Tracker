@@ -16,7 +16,8 @@ import {
   Building2,
   FileText,
   Inbox,
-  LogOut
+  LogOut,
+  Search
 } from "lucide-react";
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
@@ -33,14 +34,10 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
 
   const navigation = [
     { name: "Dashboard", to: "/", icon: <LayoutDashboard size={18} /> },
+    { name: "AI Job Search", to: "/job-search", icon: <Search size={18} /> },
     { name: "Applications", to: "/applications", icon: <Briefcase size={18} /> },
-    { name: "Pipeline Board", to: "/pipeline", icon: <Layers size={18} /> },
     { name: "Inbox", to: "/notifications", icon: <Inbox size={18} /> },
-    { name: "Companies", to: "/companies", icon: <Building2 size={18} /> },
     { name: "AI Resume ATS", to: "/resume", icon: <FileText size={18} /> },
-    { name: "Analytics", to: "/analytics", icon: <TrendingUp size={18} /> },
-    { name: "Calendar", to: "/calendar", icon: <Calendar size={18} /> },
-    { name: "AI Prep Hub", to: "/ai", icon: <Sparkles size={18} /> },
     { name: "Settings", to: "/settings", icon: <Settings size={18} /> },
   ];
 

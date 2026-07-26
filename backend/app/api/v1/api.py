@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     gmail,
     notifications,
     resume,
+    jobs,
 )
 
 api_router = APIRouter()
@@ -21,3 +22,5 @@ api_router.include_router(analytics.router, prefix="/analytics", tags=["analytic
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(resume.router, prefix="/resume", tags=["resume"])
+api_router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
+

@@ -13,3 +13,8 @@ venv/
 careertrack.db
 app.db
 careertrack_local_backup.db
+__pycache__/
+*.pyc
+.env
+backend/.env
+frontend/.env

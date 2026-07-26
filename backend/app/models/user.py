@@ -60,5 +60,12 @@ class User(Base):
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )
+    saved_jobs: Mapped[list["SavedJob"]] = relationship(
+        "SavedJob", back_populates="user", cascade="all, delete-orphan"
+    )
+    recent_searches: Mapped[list["RecentSearch"]] = relationship(
+        "RecentSearch", back_populates="user", cascade="all, delete-orphan"
+    )
+
 
 

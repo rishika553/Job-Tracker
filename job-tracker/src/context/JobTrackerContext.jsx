@@ -86,6 +86,59 @@ export function JobTrackerProvider({ children }) {
     }
   };
 
+  // Helper to extract job details from email content
+  const extractJobFromEmail = (email) => {
+    if (!email) return null;
+    const subject = email.subject || "";
+    const body = email.body || email.snippet || "";
+    const sender = email.sender || email.from || "";
+    const text = `${subject} ${body} ${sender}`.toLowerCase();
+
+    // Check if job application confirmation or update email
+    const isJobEmail = text.includes("applied") || text.includes("application") || text.includes("thank you for applying") || text.includes("interview") || text.includes("offer") || text.includes("greenhouse") || text.includes("lever") || text.includes("workday");
+    if (!isJobEmail) return null;
+
+    // Extract Company Name
+    let company = "";
+    const companyMatch = subject.match(/(?:at|to|with|for)\s+([A-Z][A-Za-z0-9\s&.-]+?)(?:\s+for|\s+-\s+|\s+\(|\s*$)/i) ||
+                         sender.match(/([A-Z][A-Za-z0-9\s&.-]+?)(?:\s*<|\s*recruiting|\s*careers|\s*hiring)/i);
+    if (companyMatch && companyMatch[1] && companyMatch[1].trim().length > 1) {
+      company = companyMatch[1].trim();
+    }
+    if (!company) {
+      const domainMatch = sender.match(/@([\w-]+)\./);
+      if (domainMatch && !["gmail", "yahoo", "hotmail", "outlook"].includes(domainMatch[1])) {
+        company = domainMatch[1].charAt(0).toUpperCase() + domainMatch[1].slice(1);
+      } else {
+        company = sender.split("<")[0].replace(/[^a-zA-Z0-9\s]/g, "").trim() || "Target Company";
+      }
+    }
+
+    // Extract Role Title
+    let role = "Software Engineer";
+    const roleMatch = subject.match(/(?:for|as)\s+([A-Za-z0-9\s/.-]+?)(?:\s+at|\s+-\s+|\s+\(|$)/i) ||
+                      body.match(/(?:position|role|job|title):\s*([A-Za-z0-9\s/.-]+)/i);
+    if (roleMatch && roleMatch[1] && roleMatch[1].trim().length > 2) {
+      role = roleMatch[1].trim();
+    }
+
+    // Extract Application Status
+    let status = "applied";
+    if (text.includes("interview") || text.includes("schedule")) status = "interview";
+    else if (text.includes("offer")) status = "offer";
+    else if (text.includes("reject") || text.includes("regret to inform")) status = "rejected";
+
+    return {
+      company: company.slice(0, 35),
+      role: role.slice(0, 45),
+      status: status,
+      appliedDate: email.date || "Recent",
+      source: "Email Auto-Sync",
+      location: "Remote / On-site",
+      jobDescription: body.slice(0, 500)
+    };
+  };
+
   // Sync emails from real Gmail API endpoint and parse into DB
   const syncGmail = async () => {
     if (!gmailStatus.connected || !gmailStatus.accountId) {
@@ -96,7 +149,7 @@ export function JobTrackerProvider({ children }) {
     setGmailStatus(prev => ({
       ...prev,
       isScanning: true,
-      logs: ["Connecting to Gmail API endpoint...", "Scanning inbox messages (newer_than:30d)..."]
+      logs: ["Connecting to Gmail API endpoint...", "Scanning inbox messages for job emails..."]
     }));
 
     try {
@@ -104,7 +157,23 @@ export function JobTrackerProvider({ children }) {
       const fetchedEmails = data?.emails || [];
       setSyncedEmails(fetchedEmails);
 
-      // Refresh applications list to catch any auto-detected applications
+      // Auto-extract and create applications for any new job emails
+      let autoCreatedCount = 0;
+      for (const email of fetchedEmails) {
+        const parsedJob = extractJobFromEmail(email);
+        if (parsedJob) {
+          const exists = applications.some(a => 
+            (a.company && a.company.toLowerCase() === parsedJob.company.toLowerCase()) ||
+            (a.role && a.role.toLowerCase() === parsedJob.role.toLowerCase())
+          );
+          if (!exists) {
+            await addApplication(parsedJob);
+            autoCreatedCount++;
+          }
+        }
+      }
+
+      // Refresh applications list to display all newly parsed applications
       await fetchApplications();
 
       if (fetchedEmails.length > 0) {
@@ -127,11 +196,11 @@ export function JobTrackerProvider({ children }) {
         ...prev,
         isScanning: false,
         emailsScanned: fetchedEmails.length,
-        jobsFound: fetchedEmails.length,
+        jobsFound: autoCreatedCount || fetchedEmails.length,
         lastSync: "Just now",
         logs: [
           `Successfully connected to Gmail API for ${gmailStatus.account}.`,
-          `Fetched ${fetchedEmails.length} messages from inbox (newer_than:30d).`,
+          `Fetched ${fetchedEmails.length} messages and auto-extracted ${autoCreatedCount} new job applications.`,
           ...emailLogs
         ]
       }));

@@ -21,10 +21,10 @@ export default function Navbar({ setMobileMenuOpen }) {
     switch (location.pathname) {
       case "/":
         return "Overview";
+      case "/job-search":
+        return "AI Job Search";
       case "/applications":
         return "Applications Board";
-      case "/ai":
-        return "AI Prep Hub";
       case "/settings":
         return "Settings";
       default:

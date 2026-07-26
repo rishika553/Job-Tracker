@@ -5,13 +5,9 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Dashboard from "../pages/Dashboard";
 import Application from "../pages/Application";
 import ApplicationDetails from "../pages/ApplicationDetails";
-import Pipeline from "../pages/Pipeline";
-import Analytics from "../pages/Analytics";
-import Calendar from "../pages/Calendar";
-import Companies from "../pages/Companies";
+import JobSearch from "../pages/JobSearch";
 import Resume from "../pages/Resume";
 import Notifications from "../pages/Notifications";
-import AIInsights from "../pages/AIInsights";
 import Setting from "../pages/Setting";
 
 export default function AppRoutes() {
@@ -23,6 +19,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/job-search"
+        element={
+          <ProtectedRoute>
+            <JobSearch />
           </ProtectedRoute>
         }
       />
@@ -42,38 +46,10 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/pipeline"
-        element={
-          <ProtectedRoute>
-            <Pipeline />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/analytics"
-        element={
-          <ProtectedRoute>
-            <Analytics />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/calendar"
-        element={
-          <ProtectedRoute>
-            <Calendar />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/companies"
-        element={
-          <ProtectedRoute>
-            <Companies />
-          </ProtectedRoute>
-        }
-      />
+
+
+
+
       <Route
         path="/resume"
         element={
@@ -90,14 +66,7 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/ai"
-        element={
-          <ProtectedRoute>
-            <AIInsights />
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/settings"
         element={

@@ -614,10 +614,10 @@ export default function Dashboard() {
 
           <div className="border-t border-brand-100 pt-4">
             <button 
-              onClick={() => navigate("/ai")}
+              onClick={() => navigate("/resume")}
               className="w-full flex items-center justify-between text-xs font-extrabold text-purple-600 hover:text-purple-800 transition"
             >
-              <span>Explore AI Prep Hub</span>
+              <span>Explore AI Resume ATS</span>
               <ArrowRight size={13} />
             </button>
           </div>
@@ -730,74 +730,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 10. Application pipeline preview */}
-          <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-1.5">
-                <Layers size={15} className="text-brand-500" />
-                <h3 className="text-xs md:text-sm font-bold text-brand-850 uppercase tracking-wider">Pipeline Volume</h3>
-              </div>
-              <span className="text-xs text-brand-400 font-semibold">Total: {totalApps} active tracks</span>
-            </div>
 
-            <div className="space-y-4">
-              {/* Row 1: Wishlist */}
-              <div>
-                <div className="flex items-center justify-between text-xs md:text-sm font-semibold text-brand-700 mb-1.5">
-                  <span>Wishlist</span>
-                  <span className="font-extrabold">{wishlistCount} jobs</span>
-                </div>
-                <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-400 rounded-full transition-all duration-500" 
-                    style={{ width: `${totalApps > 0 ? (wishlistCount / totalApps) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Applied */}
-              <div>
-                <div className="flex items-center justify-between text-xs md:text-sm font-semibold text-brand-700 mb-1.5">
-                  <span>Applied</span>
-                  <span className="font-extrabold text-amber-600">{appliedCount} jobs</span>
-                </div>
-                <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-amber-400 rounded-full transition-all duration-500" 
-                    style={{ width: `${totalApps > 0 ? (appliedCount / totalApps) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: Interview */}
-              <div>
-                <div className="flex items-center justify-between text-xs md:text-sm font-semibold text-brand-700 mb-1.5">
-                  <span>Interviewing</span>
-                  <span className="font-extrabold text-blue-600">{interviewCount} processes</span>
-                </div>
-                <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500" 
-                    style={{ width: `${totalApps > 0 ? (interviewCount / totalApps) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Offer */}
-              <div>
-                <div className="flex items-center justify-between text-xs md:text-sm font-semibold text-brand-700 mb-1.5">
-                  <span>Offers Secured</span>
-                  <span className="font-extrabold text-emerald-600">{offerCount} signed/received</span>
-                </div>
-                <div className="w-full h-2 bg-brand-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                    style={{ width: `${totalApps > 0 ? (offerCount / totalApps) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Double Column Grid: Recent Applications & Recent Recruiter Activity */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

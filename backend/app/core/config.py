@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "careertrack"
 
+    # JSearch / RapidAPI Key Configuration
+    RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY", os.getenv("JSEARCH_API_KEY", ""))
+    JSEARCH_API_KEY: str = os.getenv("JSEARCH_API_KEY", os.getenv("RAPIDAPI_KEY", ""))
+
+
     # Google OAuth Credentials
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")

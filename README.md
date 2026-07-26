@@ -1,286 +1,168 @@
-# 🚀 Job Tracker
+# 🚀 AI Job Tracker
 
-An AI-powered Job Application Tracking Platform that helps job seekers automatically organize, monitor, and analyze their job applications from multiple sources in one place.
+An AI-powered, full-stack **Job Application & Search Platform** built with **FastAPI**, **React (Vite)**, **TailwindCSS**, and **Supabase (PostgreSQL)**. 
 
-> 🚧 **Project Status:** Actively Under Development
-
----
-
-# 📖 About
-
-Job Tracker is a modern full-stack application built to simplify the job search process.
-
-Instead of maintaining spreadsheets manually, Job Tracker automatically tracks your applications, manages interview progress, provides AI-powered insights, and visualizes everything through a clean dashboard.
-
-The long-term goal is to create a personal AI career assistant for job seekers.
+AI Job Tracker helps job seekers search live opportunities, automatically extract applications from incoming emails, manage job applications, and analyze resumes with ATS optimization.
 
 ---
 
-# ✨ Features
+## 🌟 Key Features
 
-## 📊 Dashboard
-
-- Total Applications
-- Interviews Scheduled
-- Job Offers
-- Application Statistics
-- Responsive Dashboard UI
-
----
-
-## 💼 Application Management
-
-- View all applications
-- Search applications
-- Filter by status
-- Track application progress
-- Application details page
+### 🔍 1. AI Job Search Module (`/job-search`)
+* **Real-time Live Job Search:** Integrated with **RapidAPI JSearch API** to search millions of job listings across LinkedIn, Indeed, Glassdoor, and company portals.
+* **Smart Search & Filters:** Filter by Job Title, Location (Remote, Hybrid, Onsite), Experience Level (Entry, Mid, Senior, Lead), Employment Type (Full Time, Part Time, Contract, Internship), and Salary.
+* **Glassmorphism Job Cards:** Visual cards displaying company logos, salaries, posted dates, and source badges.
+* **Supabase Job Bookmarking:** Save and bookmark jobs stored directly in your **Supabase PostgreSQL** `saved_jobs` table.
+* **Recent Search Logs:** Persistent search query chips stored in `recent_searches` table.
+* **Job Details Modal:** Inspect full job descriptions, required skills, responsibilities, and perks.
+* **Auto-Application Tracking:** Apply to any job URL, confirm *"Did you apply?"*, and the system automatically logs a new entry in your **Applications** board under `APPLIED` status.
 
 ---
 
-## 🤖 AI Insights *(Coming Soon)*
-
-- Resume vs Job Description Match Score
-- Skill Gap Analysis
-- Resume Improvement Suggestions
-- Career Recommendations
-- Interview Preparation Tips
+### 📥 2. Master-Detail Notification Center (`/notifications`)
+* **5:7 Split View:** Left scrollable email list + right sticky full email reader.
+* **Job-Related Email Filter (`isJobRelatedEmail`):** Automated filtering that discards marketing/spam and displays ONLY job application confirmations, interview invitations, recruiter emails, offers, and rejections.
+* **Full Body Formatting:** Multi-line text formatting preserving line breaks and clickable links without truncation.
 
 ---
 
-## 📧 Automatic Job Tracking *(Coming Soon)*
-
-Automatically detect application emails from Gmail.
-
-Extract information such as:
-
-- Company Name
-- Job Role
-- Application Date
-- Current Status
-
-Supported Platforms
-
-- LinkedIn
-- Indeed
-- Naukri
-- Internshala
-- Wellfound
-- Company Career Pages
-- Any platform sending confirmation emails
+### 💼 3. Applications Board (`/applications`)
+* Track all active applications across stages (`Wishlist`, `Applied`, `Interviewing`, `Offered`, `Rejected`).
+* Automatically synced from Gmail job emails and AI Job Search applies.
+* Real-time search, status filtering, and application details view.
 
 ---
 
-## ⚙️ Settings
-
-- User Profile
-- Gmail Connection
-- AI Configuration
-- Notification Settings
+### 🤖 4. AI Email Parser & Gmail Sync
+* Connect your Gmail account via OAuth / API.
+* Automatically parses incoming emails for Company Name, Job Role, Location, and Application Status.
 
 ---
 
-# 🛠 Tech Stack
-
-## Frontend
-
-- React.js
-- Vite
-- Tailwind CSS
-- React Router DOM
-- Axios
-- Lucide React
-- Recharts
+### 📄 5. AI Resume ATS (`/resume`)
+* Upload resumes (PDF/DOCX) for AI parsing.
+* Keyword density score and ATS optimization feedback against target job descriptions.
 
 ---
 
-## Backend
+## 🛠️ Tech Stack
 
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- JWT Authentication
+### Frontend (`/job-tracker`)
+* **Framework:** React 18 (Vite)
+* **Styling:** TailwindCSS + Framer Motion (Glassmorphism & animations)
+* **Routing:** React Router DOM v6
+* **Icons:** Lucide React
+* **HTTP Client:** Axios with JWT auto-refresh interceptors
+* **Auth:** Supabase Auth SDK
+
+### Backend (`/backend`)
+* **Framework:** FastAPI (Async Python)
+* **ORM & Database:** SQLAlchemy (Async) + PostgreSQL (Supabase) / SQLite
+* **Authentication:** JWT Bearer & Supabase Google OAuth
+* **External APIs:** RapidAPI JSearch API, Gmail API
 
 ---
 
-## AI & APIs
+## 📁 Project Structure
 
-- Google Gemini API
-- Gmail API
-- OAuth 2.0
-
----
-
-# 📂 Project Structure
-
-```
-Job-Tracker
-│
-├── backend
-│   ├── app
-│   ├── migrations
-│   └── requirements.txt
-│
-├── job-tracker
-│   ├── public
-│   ├── src
-│   │
-│   ├── components
-│   ├── context
-│   ├── layouts
-│   ├── pages
-│   │   ├── Dashboard.jsx
-│   │   ├── Application.jsx
-│   │   ├── AIInsights.jsx
-│   │   ├── Analytics.jsx
-│   │   ├── Calendar.jsx
-│   │   ├── Companies.jsx
-│   │   ├── Pipeline.jsx
-│   │   ├── Resume.jsx
-│   │   └── Settings.jsx
-│   │
-│   ├── routes
-│   ├── App.jsx
-│   └── main.jsx
-│
-└── README.md
+```text
+AI-jobtracker/
+├── backend/                  # FastAPI Backend Server
+│   ├── app/
+│   │   ├── api/v1/endpoints/ # API routers (jobs, applications, gmail, etc.)
+│   │   ├── core/            # App configuration & JWT auth
+│   │   ├── db/              # Database session & models base
+│   │   ├── models/          # SQLAlchemy DB models (user, job, saved_job, search)
+│   │   ├── repositories/    # Database repository layer
+│   │   ├── schemas/         # Pydantic validation schemas
+│   │   └── services/        # Business logic & JSearch API integration
+│   └── .env                 # Backend environment variables
+└── job-tracker/              # React Frontend Application
+    ├── src/
+    │   ├── components/      # UI components (SearchBar, JobCard, Sidebar, etc.)
+    │   ├── context/         # React Context (AuthContext, JobTrackerContext)
+    │   ├── pages/           # Page views (Dashboard, JobSearch, Applications, etc.)
+    │   ├── routes/          # Protected AppRoutes
+    │   └── services/        # Axios API clients
+    └── .env                 # Frontend environment variables
 ```
 
 ---
 
-# ✅ Current Progress
+## 🚀 Getting Started
 
-- ✅ React + Vite Setup
-- ✅ Tailwind CSS Setup
-- ✅ React Router
-- ✅ Dashboard UI
-- ✅ Application Management
-- ✅ Analytics Page
-- ✅ Calendar Page
-- ✅ Resume Page
-- ✅ Pipeline Page
-- ✅ Company Management
-- ✅ FastAPI Project Structure
-- ✅ PostgreSQL Models
-- ✅ Authentication Backend
-
----
-
-# 🚀 Upcoming Features
-
-- User Authentication
-- Gmail OAuth Login
-- Automatic Email Detection
-- AI Resume Analyzer
-- Resume Match Score
-- Interview Question Generator
-- Skill Gap Analysis
-- AI Career Recommendations
-- Analytics Dashboard
-- Notifications
-- Dark Mode
-- Deployment
-
----
-
-# 📦 Installation
-
-## Clone the repository
+### 1. Backend Setup
 
 ```bash
-git clone https://github.com/rishika553/Job-Tracker.git
+cd backend
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+
+pip install -r requirements.txt
 ```
 
-## Navigate to the project
+Create `backend/.env` file:
+
+```env
+PROJECT_NAME="CareerTrack Backend"
+API_V1_STR=/api/v1
+SECRET_KEY=your_secret_key_here
+
+# Database
+USE_SQLITE=true
+DATABASE_URL=postgresql+asyncpg://postgres:password@db.supabase.co:5432/postgres
+
+# RapidAPI JSearch
+RAPIDAPI_KEY=your_rapidapi_jsearch_key
+JSEARCH_API_KEY=your_rapidapi_jsearch_key
+```
+
+Run backend dev server:
 
 ```bash
-cd Job-Tracker
+py -m uvicorn app.main:app --reload
 ```
+Backend API docs available at: `http://localhost:8000/docs`
 
 ---
 
-## Frontend Setup
+### 2. Frontend Setup
 
 ```bash
 cd job-tracker
 npm install
-npm run dev
 ```
 
-Runs on:
+Create `job-tracker/.env` file:
 
+```env
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SUPABASE_URL=https://your-supabase-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
-http://localhost:5173
-```
 
----
-
-## Backend Setup
+Run frontend dev server:
 
 ```bash
-cd backend
-
-python -m venv venv
-
-venv\Scripts\activate
-
-pip install -r requirements.txt
-
-uvicorn app.main:app --reload
+npm run dev
 ```
-
-Runs on:
-
-```
-http://localhost:8000
-```
+Frontend Web App available at: `http://localhost:5173`
 
 ---
 
-# 🗺 Roadmap
+## 🔑 Environment Variables Summary
 
-- ✅ React Project Setup
-- ✅ Dashboard UI
-- ✅ Routing
-- ✅ Application Pages
-- ✅ Backend Architecture
-- ⏳ Authentication
-- ⏳ PostgreSQL Integration
-- ⏳ Gmail Integration
-- ⏳ AI Insights
-- ⏳ Resume Analysis
-- ⏳ Automatic Job Tracking
-- ⏳ Notifications
-- ⏳ Deployment
+| Scope | Variable | Description |
+| :--- | :--- | :--- |
+| **Backend** | `RAPIDAPI_KEY` | RapidAPI JSearch API Key for live job search |
+| **Backend** | `DATABASE_URL` | Supabase PostgreSQL Connection String |
+| **Backend** | `USE_SQLITE` | Set `true` for local development mode |
+| **Frontend**| `VITE_SUPABASE_URL` | Supabase Project URL |
+| **Frontend**| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase Anonymous Client Key |
 
 ---
 
-# 🤝 Contributing
+## 📜 License
 
-Contributions, suggestions, and feature requests are welcome.
-
-1. Fork the repository
-2. Create a new branch
-3. Commit your changes
-4. Push the branch
-5. Open a Pull Request
-
----
-
-# 👩‍💻 Developer
-
-**Rishika**
-
-BCA Student • Full Stack Developer • AI Enthusiast
-
-GitHub: https://github.com/rishika553
-
----
-
-# ⭐ Support
-
-If you found this project useful, please consider giving it a **⭐ Star** on GitHub.
-
-It helps the project reach more developers and motivates future development.
-
----
+Distributed under the MIT License.

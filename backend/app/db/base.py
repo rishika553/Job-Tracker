@@ -13,5 +13,8 @@ from app.models.resume import Resume  # noqa: F401
 from app.models.activity_log import ActivityLog  # noqa: F401
 from app.models.timeline import ApplicationTimeline  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
+from app.models.saved_job import SavedJob  # noqa: F401
+from app.models.recent_search import RecentSearch  # noqa: F401
+
 
 

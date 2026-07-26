@@ -59,8 +59,8 @@ export default function CommandPalette() {
   // Navigation actions list
   const navigationItems = [
     { icon: <Briefcase size={16} />, label: "Go to Dashboard", action: () => navigate("/") },
+    { icon: <Search size={16} />, label: "Go to AI Job Search", action: () => navigate("/job-search") },
     { icon: <FileText size={16} />, label: "Go to Applications Board", action: () => navigate("/applications") },
-    { icon: <Sparkles size={16} />, label: "Go to AI Prep & Insights", action: () => navigate("/ai") },
     { icon: <Settings size={16} />, label: "Go to Settings", action: () => navigate("/settings") },
   ];
 

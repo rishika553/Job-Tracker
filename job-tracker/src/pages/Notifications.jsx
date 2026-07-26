@@ -46,10 +46,10 @@ export default function Notifications() {
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
         .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
-        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, "$2 ($1)")
-        .replace(/<\/?(p|div|tr|h1|h2|h3|h4|h5|h6|li|blockquote)[^>]*>/gi, "\n")
+        .replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gi, " $2 ($1) ")
+        .replace(/<\/?(p|div|tr|h1|h2|h3|h4|h5|h6|li|blockquote)[^>]*>/gi, "\n\n")
         .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]+>/g, " ");
+        .replace(/<[^>]+>/g, "");
     }
 
     const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/g;
@@ -108,12 +108,40 @@ export default function Notifications() {
     return 0;
   };
 
+  // Helper to strictly filter ONLY job-related emails
+  const isJobRelatedEmail = (email) => {
+    if (!email) return false;
+    const text = `${email.subject || ""} ${email.body || ""} ${email.snippet || ""} ${email.sender || ""} ${email.from || ""}`.toLowerCase();
+    
+    // Ignore non-job spam, digests, newsletters, billing, marketing
+    const nonJobKeywords = [
+      "daily digest", "weekly digest", "newsletter", "receipt", "invoice", "billing", 
+      "password reset", "verify your email", "shipping confirmation", "order confirmation", 
+      "security alert", "marketing", "top picks", "unsubscribe"
+    ];
+    if (nonJobKeywords.some(kw => text.includes(kw))) {
+      return false;
+    }
+
+    // Require job application, interview, recruiter, ATS portal, or status keywords
+    const jobKeywords = [
+      "applied", "application", "interview", "recruiter", "hiring", "job", "career",
+      "offer", "assessment", "greenhouse", "lever", "workday", "ashby", "smartrecruiters",
+      "naukri", "linkedin", "indeed", "glassdoor", "wellfound", "candidacy", "talent",
+      "position", "role", "technical round", "schedule", "rejection", "regret to inform"
+    ];
+
+    return jobKeywords.some(kw => text.includes(kw));
+  };
+
   // Dynamic notifications generation from context applications & synced emails
   const notificationsList = useMemo(() => {
     const list = [];
     
-    // 1. Synced Gmail Inbox Messages (Newest first)
+    // 1. Synced Gmail Inbox Messages (Filter ONLY job-related emails)
     (syncedEmails || []).forEach((email, idx) => {
+      if (!isJobRelatedEmail(email)) return;
+
       const sender = email.sender || email.from || "Gmail";
       const subject = email.subject || "(No subject)";
       const body = email.body || email.snippet || subject;
@@ -131,6 +159,7 @@ export default function Notifications() {
         link: null
       });
     });
+
 
     // 2. Synced Activities Feed
     (activities || []).forEach((act) => {
@@ -152,18 +181,25 @@ export default function Notifications() {
     });
 
     applications.forEach(app => {
+      const company = app.company || app.company_name || "Company";
+      const role = app.role || app.title || "Developer";
+      const status = (app.status || "applied").toUpperCase();
+      const location = app.location || "Remote / On-site";
+      const salary = app.salary || app.salary_range || "Competitive Package";
+      const appliedDate = app.appliedDate || app.applied_at || "Recently";
+
       // Interview Reminders
       if (app.status === "interview" || app.status === "interviewing") {
         list.push({
           id: `int-${app.id}`,
           category: "interview",
-          title: `Technical Round: ${app.company}`,
-          details: `Panel interview scheduled for ${app.role} role. Video meeting details are updated.`,
+          title: `Technical Interview: ${company}`,
+          details: `Panel interview scheduled for ${role} role at ${company}.`,
+          body: `Official Technical & Behavioral Interview Round scheduled.\n\nPosition: ${role}\nCompany: ${company}\nStatus: ${status}\nLocation: ${location}\nScheduled Time: Today, 2:00 PM\nFormat: Remote Video Meeting (Google Meet / Teams)\n\nPreparation Notes & Checklist:\n• Review System Architecture & Algorithm concepts.\n• Prepare STAR framework stories for past projects.\n• Test microphone, camera, and internet connection prior to call.`,
           timestamp: "Today, 2:00 PM",
           sortTime: Date.now(),
           read: false,
-          actionLabel: "Open Teams Link",
-          link: "/calendar"
+          link: "/applications"
         });
       }
       
@@ -171,12 +207,12 @@ export default function Notifications() {
       list.push({
         id: `up-${app.id}`,
         category: "update",
-        title: `${app.company} Application Update`,
-        details: `Candidacy status moved to ${app.status.toUpperCase()} for ${app.role}.`,
-        timestamp: app.appliedDate || "Recently",
-        sortTime: getSortTime(app.appliedDate) || (Date.now() - 86400000),
+        title: `${company} Application Update`,
+        details: `Candidacy status moved to ${status} for ${role}.`,
+        body: `Application Update Notification\n\nCompany: ${company}\nRole / Position: ${role}\nCurrent Stage: ${status}\nApplied Date: ${appliedDate}\nLocation: ${location}\nSalary Expectation: ${salary}\n\nNotes & Description:\n${app.jobDescription || app.notes || "Application candidate tracking system record updated successfully. Check pipeline timeline for interview scheduling and response logs."}`,
+        timestamp: appliedDate,
+        sortTime: getSortTime(appliedDate) || (Date.now() - 86400000),
         read: false,
-        actionLabel: "Inspect Details",
         link: `/applications/${app.id}`
       });
 
@@ -185,12 +221,12 @@ export default function Notifications() {
         list.push({
           id: `off-${app.id}`,
           category: "offer",
-          title: `Offer Extended by ${app.company}!`,
-          details: `Congratulations! Compensation packages for ${app.role} have been drafted. Review details below.`,
+          title: `Offer Extended by ${company}!`,
+          details: `Congratulations! Official job offer extended for ${role}.`,
+          body: `Official Job Offer Summary\n\nCompany: ${company}\nPosition: ${role}\nStatus: OFFER EXTENDED 🎉\nCompensation Package: ${salary}\nLocation: ${location}\n\nCongratulations on reaching the offer stage! Review contract details, equity options, and benefits package with your primary recruiter.`,
           timestamp: "Recent",
           sortTime: Date.now() - 172800000,
           read: true,
-          actionLabel: "View Offer Details",
           link: `/applications/${app.id}`
         });
       }
@@ -393,112 +429,117 @@ export default function Notifications() {
             viewMode === "feed" ? (
               
               /* Linear-style Feed Split screen */
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                 
-                {/* Scrollable list */}
-                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                {/* Scrollable list (5 cols on lg) */}
+                <div className="lg:col-span-5 space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
                   {filteredNotifs.map((notif) => {
                     const isActive = notif.id === activeNotif?.id;
                     return (
-                      <div
+                      <motion.div
                         key={notif.id}
+                        whileHover={{ scale: 1.005 }}
+                        whileTap={{ scale: 0.995 }}
                         onClick={() => {
                           setSelectedNotifId(notif.id);
                           handleMarkAsRead(notif.id);
                         }}
-                        className={`p-4 border rounded-2xl transition cursor-pointer relative flex justify-between items-start ${
+                        className={`p-3.5 border rounded-2xl transition cursor-pointer relative flex justify-between items-start ${
                           isActive 
-                            ? "border-amber-400 bg-amber-50/5 ring-1 ring-amber-400/10 shadow-3xs" 
-                            : "border-brand-200/80 hover:border-brand-300 bg-white"
+                            ? "border-amber-400 bg-amber-50/15 ring-1 ring-amber-400/20 shadow-xs" 
+                            : "border-brand-200/80 hover:border-brand-300 bg-white hover:bg-brand-50/30"
                         }`}
                       >
-                        <div className="min-w-0 pr-2">
+                        {/* Active vertical accent bar */}
+                        {isActive && (
+                          <span className="absolute left-0 top-3 bottom-3 w-1 bg-amber-500 rounded-r-full" />
+                        )}
+
+                        <div className="min-w-0 pr-2 pl-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`inline-block border px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider font-sans ${getCategoryColor(notif.category)}`}>
+                            <span className={`inline-block border px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase tracking-wider font-sans ${getCategoryColor(notif.category)}`}>
                               {notif.category}
                             </span>
                             <span className="text-[9px] text-brand-400 font-bold font-mono">{notif.timestamp}</span>
                           </div>
 
-                          <h4 className={`text-xs font-bold text-brand-900 mt-2 truncate ${!notif.read ? "font-black" : "font-semibold"}`}>
+                          <h4 className={`text-xs font-bold text-brand-900 mt-1.5 truncate ${!notif.read ? "font-black" : "font-semibold"}`}>
                             {notif.title}
                           </h4>
-                          <p className="text-[10px] text-brand-450 mt-1 truncate">{notif.details}</p>
+                          <p className="text-[10px] text-brand-450 mt-0.5 truncate leading-tight">{notif.details}</p>
                         </div>
 
                         {/* Unread circle badge */}
                         {!notif.read && (
                           <span className="w-2.5 h-2.5 bg-amber-500 rounded-full shrink-0 shadow-3xs mt-1" />
                         )}
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
 
-                {/* Details view panel beside the list */}
-                <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium space-y-4 sticky top-4">
-                  {activeNotif ? (
-                    <>
-                      <div className="flex justify-between items-start gap-4 flex-wrap border-b border-brand-100/60 pb-3.5">
-                        <div>
-                          <span className={`inline-block border px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider ${getCategoryColor(activeNotif.category)}`}>
-                            {activeNotif.category}
-                          </span>
-                          <span className="text-xs text-brand-400 font-bold font-mono block mt-2">{activeNotif.timestamp}</span>
+                {/* Details view panel beside the list (7 cols on lg) */}
+                <div className="lg:col-span-7 bg-white border border-brand-200/80 rounded-2xl p-6 shadow-premium space-y-4 sticky top-4">
+                  <AnimatePresence mode="wait">
+                    {activeNotif ? (
+                      <motion.div
+                        key={activeNotif.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.15 }}
+                        className="space-y-4"
+                      >
+                        <div className="flex justify-between items-start gap-4 flex-wrap border-b border-brand-100/80 pb-3.5">
+                          <div>
+                            <span className={`inline-block border px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider ${getCategoryColor(activeNotif.category)}`}>
+                              {activeNotif.category}
+                            </span>
+                            <span className="text-xs text-brand-400 font-bold font-mono block mt-2">{activeNotif.timestamp}</span>
+                          </div>
+
+                          {!activeNotif.read && (
+                            <button
+                              onClick={() => handleMarkAsRead(activeNotif.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                            >
+                              <Check size={13} />
+                              <span>Mark as read</span>
+                            </button>
+                          )}
                         </div>
 
-                        {!activeNotif.read && (
-                          <button
-                            onClick={() => handleMarkAsRead(activeNotif.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-xl text-xs font-bold transition cursor-pointer"
-                          >
-                            <Check size={13} />
-                            <span>Mark read</span>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-4 text-left">
-                        {/* Subject & Sender Header */}
-                        <div className="space-y-2 border-b border-brand-100 pb-3">
-                          <h3 className="text-sm md:text-base font-black text-brand-950 leading-snug">{activeNotif.details}</h3>
-                          <div className="flex items-center gap-3 pt-1">
-                            <div className="w-10 h-10 rounded-full bg-brand-950 text-amber-400 font-black text-xs flex items-center justify-center uppercase shrink-0 shadow-3xs">
-                              {(activeNotif.title || 'M')[0]}
-                            </div>
-                            <div>
-                              <h4 className="text-xs font-bold text-brand-900">{activeNotif.title}</h4>
-                              <p className="text-[10px] text-brand-450 font-mono">From: {activeNotif.title}</p>
+                        <div className="space-y-4 text-left">
+                          {/* Subject & Sender Header */}
+                          <div className="space-y-2.5 border-b border-brand-100 pb-3.5">
+                            <h3 className="text-sm md:text-base font-black text-brand-950 leading-snug">{activeNotif.details}</h3>
+                            <div className="flex items-center gap-3 pt-1">
+                              <div className="w-10 h-10 rounded-full bg-brand-950 text-amber-400 font-black text-xs flex items-center justify-center uppercase shrink-0 shadow-3xs">
+                                {(activeNotif.title || 'M')[0]}
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-bold text-brand-900">{activeNotif.title}</h4>
+                                <p className="text-[10px] text-brand-450 font-mono">From: {activeNotif.title}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Full Email Message Content */}
-                        <div className="bg-brand-50/20 border border-brand-100 rounded-xl p-4.5 text-xs text-brand-800 leading-relaxed font-sans whitespace-pre-wrap max-h-[480px] overflow-y-auto">
-                          {renderTextWithLinks(activeNotif.body || activeNotif.details)}
+                          {/* Full Email Message Content */}
+                          <div className="bg-brand-50/30 border border-brand-100/80 rounded-xl p-5 text-xs text-brand-800 leading-relaxed font-sans whitespace-pre-wrap max-h-[500px] overflow-y-auto shadow-inner/5">
+                            {renderTextWithLinks(activeNotif.body || activeNotif.details)}
+                          </div>
                         </div>
+                      </motion.div>
+                    ) : (
+                      <div className="text-center text-xs text-brand-450 py-16">
+                        Click any email message on the left to read its full content here
                       </div>
-
-                      {activeNotif.link && (
-                        <div className="pt-3 border-t border-brand-100/50 flex justify-end">
-                          <button
-                            onClick={() => navigate(activeNotif.link)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-brand-950 hover:bg-brand-900 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
-                          >
-                            <span>{activeNotif.actionLabel || "View Details"}</span>
-                            <ChevronRight size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-center text-xs text-brand-450 py-16">
-                      Click any email message on the left to read its full content here
-                    </div>
-                  )}
+                    )}
+                  </AnimatePresence>
                 </div>
 
               </div>
+
 
             ) : (
 
