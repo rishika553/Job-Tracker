@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "../pages/Login";
 import ProtectedRoute from "../components/ProtectedRoute";
@@ -9,6 +9,11 @@ import JobSearch from "../pages/JobSearch";
 import Resume from "../pages/Resume";
 import Notifications from "../pages/Notifications";
 import Setting from "../pages/Setting";
+import Pipeline from "../pages/Pipeline";
+import Calendar from "../pages/Calendar";
+import Companies from "../pages/Companies";
+import Analytics from "../pages/Analytics";
+import AIInsights from "../pages/AIInsights";
 
 export default function AppRoutes() {
   return (
@@ -46,10 +51,46 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-
-
-
+      <Route
+        path="/pipeline"
+        element={
+          <ProtectedRoute>
+            <Pipeline />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <Calendar />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/companies"
+        element={
+          <ProtectedRoute>
+            <Companies />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/insights"
+        element={
+          <ProtectedRoute>
+            <AIInsights />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/resume"
         element={
@@ -66,7 +107,6 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/settings"
         element={
@@ -75,6 +115,16 @@ export default function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/setting"
+        element={
+          <ProtectedRoute>
+            <Setting />
+          </ProtectedRoute>
+        }
+      />
+      {/* Fallback route to prevent missing route console warnings */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
-}
+}

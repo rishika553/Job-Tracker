@@ -80,8 +80,8 @@ export default function CommandPalette() {
   const filteredApps = query.trim() === "" 
     ? [] 
     : applications.filter(app => 
-        app.company.toLowerCase().includes(query.toLowerCase()) ||
-        app.role.toLowerCase().includes(query.toLowerCase())
+        (app.company || "").toLowerCase().includes(query.toLowerCase()) ||
+        (app.role || app.title || "").toLowerCase().includes(query.toLowerCase())
       );
 
   // Group everything together for keyboard navigation

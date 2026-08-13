@@ -234,7 +234,7 @@ export default function ApplicationDetails() {
 
   // Recruiter & Hiring team data
   const recruiterName = companyName === "Stripe" ? "Marcus A." : companyName === "Vercel" ? "Lee P." : "Talent Acquisition";
-  const recruiterEmail = `${recruiterName.toLowerCase().replace(" ", "")}@${companyName.toLowerCase().replace(/\s+/g, "")}.com`;
+  const recruiterEmail = `${(recruiterName || "").toLowerCase().replace(" ", "")}@${(companyName || "").toLowerCase().replace(/\s+/g, "")}.com`;
   
   const hiringTeam = [
     { name: recruiterName, role: "Recruiter", avatar: "MA" },
@@ -246,7 +246,7 @@ export default function ApplicationDetails() {
   const similarJobs = [
     { company: "Linear", role: "Product Engineer", location: "Remote", salary: "$130k - $160k", logoColor: "from-[#5E6AD2] to-[#7B88EB]" },
     { company: "Vercel", role: "Developer Advocate", location: "Remote", salary: "$125k - $155k", logoColor: "from-[#000000] to-[#2563EB]" }
-  ].filter(job => job.company.toLowerCase() !== companyName.toLowerCase());
+  ].filter(job => (job.company || "").toLowerCase() !== (companyName || "").toLowerCase());
 
   return (
     <div className="space-y-6 relative pb-16 animate-fade-in">
@@ -376,12 +376,12 @@ export default function ApplicationDetails() {
               <div className="flex justify-between items-center py-1">
                 <span className="font-bold text-brand-400">Website</span>
                 <a 
-                  href={`https://www.${app.company.toLowerCase()}.com`} 
+                  href={`https://www.${(app.company || "company").toLowerCase()}.com`} 
                   target="_blank" 
                   rel="noreferrer"
                   className="font-bold text-amber-600 hover:underline flex items-center gap-0.5"
                 >
-                  <span>{app.company.toLowerCase()}.com</span>
+                  <span>{(app.company || "company").toLowerCase()}.com</span>
                   <LinkIcon className="w-3 h-3" />
                 </a>
               </div>
@@ -767,7 +767,7 @@ export default function ApplicationDetails() {
                 <div key={idx} className="flex items-center justify-between p-2 rounded-xl border border-brand-50">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${job.logoColor} text-white font-extrabold text-xs uppercase flex items-center justify-center shadow-3xs shrink-0`}>
-                      {job.company[0]}
+                      {(job.company || "?")[0]}
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-brand-900">{job.company}</h4>

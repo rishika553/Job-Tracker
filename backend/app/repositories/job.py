@@ -27,8 +27,8 @@ class JobApplicationRepository(BaseRepository[JobApplication]):
         skip: int = 0,
         limit: int = 100,
     ) -> List[JobApplication]:
-        """Fetch list of job applications for a user with optional status filter."""
-        query = select(JobApplication).options(selectinload(JobApplication.company))
+        """Fetch list of job applications for a specific user with optional status filter."""
+        query = select(JobApplication).options(selectinload(JobApplication.company)).where(JobApplication.user_id == user_id)
         if status:
             query = query.where(JobApplication.status == status)
         query = (

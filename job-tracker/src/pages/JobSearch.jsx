@@ -86,7 +86,6 @@ export default function JobSearch() {
         setRecentSearches(updatedSearches);
       }
     } catch (err) {
-      console.error("Job search error:", err);
       setError(err.response?.data?.detail || "Failed to fetch jobs. Please try again.");
     } finally {
       setIsSearching(false);
@@ -97,22 +96,26 @@ export default function JobSearch() {
     handleSearch();
   }, []);
 
-  // Filter jobs based on sidebar choices
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
+      const loc = (job.location || "").toLowerCase();
+      const empType = (job.employment_type || "").toLowerCase();
+      const comp = (job.company || "").toLowerCase();
+      const posted = (job.posted_at || "").toLowerCase();
+
       // Work mode filter
-      if (workModeFilter === "remote" && !job.location.toLowerCase().includes("remote")) return false;
-      if (workModeFilter === "hybrid" && !job.location.toLowerCase().includes("hybrid")) return false;
-      if (workModeFilter === "onsite" && (job.location.toLowerCase().includes("remote") || job.location.toLowerCase().includes("hybrid"))) return false;
+      if (workModeFilter === "remote" && !loc.includes("remote")) return false;
+      if (workModeFilter === "hybrid" && !loc.includes("hybrid")) return false;
+      if (workModeFilter === "onsite" && (loc.includes("remote") || loc.includes("hybrid"))) return false;
 
       // Employment type filter
-      if (employmentTypeFilter !== "all" && !job.employment_type.toLowerCase().includes(employmentTypeFilter.toLowerCase())) return false;
+      if (employmentTypeFilter !== "all" && !empType.includes(employmentTypeFilter.toLowerCase())) return false;
 
       // Company filter
-      if (companyFilter.trim() && !job.company.toLowerCase().includes(companyFilter.toLowerCase().trim())) return false;
+      if (companyFilter.trim() && !comp.includes(companyFilter.toLowerCase().trim())) return false;
 
       // Date posted filter
-      if (datePostedFilter === "today" && !job.posted_at.toLowerCase().includes("today")) return false;
+      if (datePostedFilter === "today" && !posted.includes("today")) return false;
 
       return true;
     });
@@ -172,8 +175,8 @@ export default function JobSearch() {
 
         setAutoAppAddedSuccess(targetJob.company);
         setTimeout(() => setAutoAppAddedSuccess(null), 4000);
-      } catch (err) {
-        console.error("Auto-add application error:", err);
+      } catch {
+        // Handled cleanly
       }
     }
   };

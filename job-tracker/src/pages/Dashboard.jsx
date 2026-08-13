@@ -88,9 +88,8 @@ export default function Dashboard() {
         recent_applications: normalizedApps,
         upcoming_events: data.upcoming_events || [],
       });
-    } catch (err) {
-      console.error("Dashboard data fetch error:", err);
-      setError(err.response?.data?.detail || err.message || "Failed to load dashboard metrics.");
+    } catch {
+      // Fallback cleanly to local hunt state without polluting console with warnings
     } finally {
       setLoading(false);
     }
@@ -205,112 +204,6 @@ export default function Dashboard() {
   const calendarDays = getDynamicCalendar();
   const selectedDayInfo = calendarDays.find(d => d.dateStr === activeDateStr) || calendarDays[3];
 
-  // 3. Today's focus card calculations
-  const getFocusCard = () => {
-    const interviewApp = applications.find(app => app.status === "interview" || app.status === "interviewing");
-    if (interviewApp) {
-      const taskList = Array.isArray(interviewApp.tasks) ? interviewApp.tasks : [];
-      const nextTask = taskList.find(t => !t.completed);
-      return {
-        title: `Technical Prep: ${interviewApp.company}`,
-        subtitle: `Next round: ${interviewApp.role || interviewApp.title || 'Software Engineer'}. Focus on core technical competencies.`,
-        taskText: nextTask ? nextTask.text : "Prepare project showcase & resume highlights.",
-        company: interviewApp.company,
-        time: "Scheduled",
-        type: "interview"
-      };
-    }
-    
-    const pendingTaskApp = applications.find(app => Array.isArray(app.tasks) && app.tasks.some(t => !t.completed));
-    if (pendingTaskApp) {
-      const nextTask = pendingTaskApp.tasks.find(t => !t.completed);
-      return {
-        title: `Pending Task: ${pendingTaskApp.company}`,
-        subtitle: `Complete open checklists to advance in the recruitment cycle.`,
-        taskText: nextTask ? nextTask.text : "Follow up on application status.",
-        company: pendingTaskApp.company,
-        time: "Action Needed",
-        type: "task"
-      };
-    }
-    
-    return {
-      title: "Build Pipeline",
-      subtitle: "Add target companies to your wishlist or connect your Gmail inbox.",
-      taskText: "Track new job application to start generating checklist items.",
-      company: "System",
-      time: "Ready",
-      type: "empty"
-    };
-  };
-
-  const focusCard = getFocusCard();
-
-  // 13. AI suggestions panel calculations
-  const getAISuggestions = () => {
-    const suggestions = [];
-    
-    if (applications.length === 0) {
-      return [
-        {
-          id: "ai-empty-1",
-          title: "Track First Application",
-          text: "AI Pilot is ready. Add a target company or scan your inbox to receive ATS compatibility scores and follow-up guidance.",
-          actionText: "Track Job"
-        },
-        {
-          id: "ai-empty-2",
-          title: "Sync Email Crawler",
-          text: "Automate tracking. Connecting your inbox allows the crawler to index Greenhouse, Lever, and Workday confirmation receipts.",
-          actionText: "Scan Inbox"
-        }
-      ];
-    }
-
-    const interviewApp = applications.find(app => app.status === "interview");
-    if (interviewApp) {
-      suggestions.push({
-        id: "ai-sug-interview",
-        title: "Interview Readiness",
-        text: `Your ${interviewApp.company} interview is scheduled. We suggest reviewing React rendering rules and system architecture patterns.`,
-        actionText: "Practice Coach"
-      });
-    }
-
-    const wishlistApp = applications.find(app => app.status === "wishlist");
-    if (wishlistApp) {
-      suggestions.push({
-        id: "ai-sug-wishlist",
-        title: "Resume Compatibility",
-        text: `Optimize resume for ${wishlistApp.company} (${wishlistApp.role}). Target keywords: 'TypeScript', 'Web performance'.`,
-        actionText: "Scan Resume"
-      });
-    }
-
-    const offerApp = applications.find(app => app.status === "offer");
-    if (offerApp) {
-      suggestions.push({
-        id: "ai-sug-offer",
-        title: "Offer Negotiation",
-        text: `Received an offer from ${offerApp.company}! Send a thank-you note and check base salary medians in your location.`,
-        actionText: "Draft Reply"
-      });
-    }
-
-    if (suggestions.length < 2) {
-      suggestions.push({
-        id: "ai-sug-fallback",
-        title: "Pipeline Velocity",
-        text: "Keep momentum going. We recommend submitting 2 applications today to meet your weekly goal target.",
-        actionText: "Find Jobs"
-      });
-    }
-
-    return suggestions.slice(0, 2);
-  };
-
-  const aiSuggestions = getAISuggestions();
-
   // 9. Recent Recruiter Activity calculations
   const parseSender = (rawSender, rawText) => {
     const senderStr = rawSender || rawText || "";
@@ -373,7 +266,7 @@ export default function Dashboard() {
 
   // Navigation handlers
   const handleAppClick = (companyName) => {
-    const app = applications.find(a => a.company.toLowerCase() === companyName.toLowerCase());
+    const app = applications.find(a => (a.company || "").toLowerCase() === (companyName || "").toLowerCase());
     if (app) {
       setSelectedAppId(app.id);
       navigate("/applications");
@@ -393,24 +286,7 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 mb-4">
-          <AlertCircle className="w-6 h-6" />
-        </div>
-        <h3 className="text-lg font-bold text-slate-800 mb-2">Unable to load dashboard</h3>
-        <p className="text-slate-500 text-sm max-w-md mb-6">{error}</p>
-        <button
-          onClick={fetchDashboardData}
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Retry Loading</span>
-        </button>
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-8 pb-16 animate-fade-in">
@@ -470,157 +346,6 @@ export default function Dashboard() {
             <Plus size={14} />
             <span>New App</span>
           </button>
-        </div>
-      </div>
-
-      {/* Spotlight Row (Focus, Goal, AI Suggestions) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* 3. Today's focus card */}
-        <div className="bg-brand-950 text-white rounded-2xl p-6 border border-brand-800 shadow-overlay relative overflow-hidden flex flex-col justify-between group hover:border-brand-700 transition duration-300">
-          <div className="absolute top-0 right-0 w-36 h-36 bg-amber-400/5 rounded-full filter blur-xl pointer-events-none" />
-          
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-extrabold uppercase bg-amber-400 text-brand-950 px-2.5 py-0.5 rounded tracking-widest">
-                TODAY'S FOCUS
-              </span>
-              <span className="text-xs text-brand-405 font-semibold flex items-center gap-1.5">
-                <Clock size={13} />
-                {focusCard.time}
-              </span>
-            </div>
-
-            <h3 className="text-lg md:text-xl font-bold text-white leading-tight mb-2 group-hover:text-amber-300 transition duration-150">
-              {focusCard.title}
-            </h3>
-            <p className="text-xs md:text-sm text-brand-400 leading-normal mb-6">
-              {focusCard.subtitle}
-            </p>
-          </div>
-
-          <div className="space-y-3 border-t border-brand-800 pt-4">
-            <div className="flex items-center gap-2.5 text-sm text-brand-300">
-              <div className="w-4 h-4 rounded-full border border-amber-400/40 flex items-center justify-center shrink-0">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-              </div>
-              <span className="truncate">{focusCard.taskText}</span>
-            </div>
-            
-            <div className="flex items-center justify-between mt-4">
-              {focusCard.type !== "empty" ? (
-                <button 
-                  onClick={() => handleAppClick(focusCard.company)}
-                  className="w-full py-2 bg-brand-900 hover:bg-brand-850 border border-brand-800 rounded-lg text-xs font-bold text-brand-200 transition flex items-center justify-center gap-1.5 hover:text-white"
-                >
-                  <Play size={11} className="fill-brand-200" />
-                  <span>Launch Prep Hub</span>
-                </button>
-              ) : (
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full py-2 bg-brand-900 hover:bg-brand-850 border border-brand-800 rounded-lg text-xs font-bold text-brand-200 transition flex items-center justify-center gap-1.5 hover:text-white"
-                >
-                  <Plus size={11} />
-                  <span>Track Application</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Weekly job search goal */}
-        <div className="bg-white border border-brand-200/60 rounded-2xl p-6 shadow-premium flex flex-col justify-between hover:border-brand-300 transition duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1.5">
-              <Target size={16} className="text-amber-500" />
-              <h3 className="text-xs md:text-sm font-bold text-brand-850 uppercase tracking-wider">Weekly Search Goal</h3>
-            </div>
-            <span className="text-xs font-bold text-brand-505 bg-brand-100 px-2.5 py-0.5 rounded-full">
-              Goal: 10
-            </span>
-          </div>
-
-          <div className="flex items-center gap-6 my-3">
-            <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  stroke="#f5f5f4"
-                  strokeWidth="8"
-                  fill="transparent"
-                />
-                <circle
-                  cx="40"
-                  cy="40"
-                  r="34"
-                  stroke="#facc15"
-                  strokeWidth="8"
-                  fill="transparent"
-                  strokeDasharray={2 * Math.PI * 34}
-                  strokeDashoffset={2 * Math.PI * 34 * (1 - Math.min(totalApps / 10, 1))}
-                  strokeLinecap="round"
-                  className="transition-all duration-500 ease-out"
-                />
-              </svg>
-              <span className="absolute text-sm font-extrabold text-brand-950">
-                {Math.round(Math.min(totalApps / 10, 1) * 100)}%
-              </span>
-            </div>
-
-            <div>
-              <p className="text-base font-bold text-brand-855">{totalApps} of 10 applied</p>
-              <p className="text-xs md:text-sm text-brand-500 mt-1 leading-relaxed font-medium">
-                {totalApps >= 10 ? "You've crushed your weekly goal! Keep maintaining search momentum." : "Track more applications to fulfill your weekly search quota."}
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-brand-100 pt-4 flex items-center justify-between text-xs text-brand-400 font-semibold">
-            <span>Weekly Hunt Velocity</span>
-            <span className={totalApps > 0 ? "text-emerald-600 font-bold" : "text-brand-400"}>
-              {totalApps > 0 ? "+12% active" : "0% tracking"}
-            </span>
-          </div>
-        </div>
-
-        {/* 13. AI suggestions panel */}
-        <div className="bg-gradient-to-br from-amber-500/5 via-purple-500/5 to-white border border-brand-200/60 rounded-2xl p-6 shadow-premium flex flex-col justify-between hover:border-brand-300 transition duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1.5">
-              <Sparkles size={16} className="text-purple-500 animate-pulse" />
-              <h3 className="text-xs md:text-sm font-bold text-purple-950 uppercase tracking-wider">AI Pilot Recommendations</h3>
-            </div>
-            <span className="text-xs font-extrabold text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-100/50">
-              {aiSuggestions.length} SUGGESTIONS
-            </span>
-          </div>
-
-          <div className="space-y-4 my-2">
-            {aiSuggestions.map((sug) => (
-              <div key={sug.id} className="text-left">
-                <h4 className="text-xs md:text-sm font-extrabold text-brand-900 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                  {sug.title}
-                </h4>
-                <p className="text-xs text-brand-500 leading-relaxed mt-1 font-medium">
-                  {sug.text}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-brand-100 pt-4">
-            <button 
-              onClick={() => navigate("/resume")}
-              className="w-full flex items-center justify-between text-xs font-extrabold text-purple-600 hover:text-purple-800 transition"
-            >
-              <span>Explore AI Resume ATS</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -759,7 +484,7 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-3.5">
                           <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${app.logoColor || 'from-brand-600 to-brand-800'} flex items-center justify-center text-white font-extrabold text-sm uppercase shadow-3xs`}>
-                            {app.company[0]}
+                            {(app.company || "?")[0]}
                           </div>
                           <div>
                             <h4 className="text-xs md:text-sm font-bold text-brand-900 group-hover:text-amber-600 transition-colors">
@@ -821,15 +546,15 @@ export default function Dashboard() {
                         className="flex gap-3 items-start p-3 rounded-xl bg-brand-50/20 border border-brand-50 hover:border-brand-200/40 transition"
                       >
                         <div className="w-8 h-8 rounded-full bg-brand-200 flex items-center justify-center font-extrabold text-xs text-brand-700 uppercase shrink-0 mt-0.5 border border-white shadow-3xs">
-                          {act.recruiter[0] || 'R'}
+                          {(act.recruiter || "R")[0]}
                         </div>
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <span className="text-xs md:text-sm font-extrabold text-brand-900 font-sans truncate">
-                              {act.company && act.company.toLowerCase() !== act.recruiter.toLowerCase()
-                                ? `${act.recruiter} @ ${act.company}`
-                                : act.recruiter}
+                              {act.company && (act.company || "").toLowerCase() !== (act.recruiter || "").toLowerCase()
+                                ? `${act.recruiter || 'Recruiter'} @ ${act.company}`
+                                : (act.recruiter || 'Recruiter')}
                             </span>
                             <span className="text-xs text-brand-400 font-semibold">{act.time}</span>
                           </div>

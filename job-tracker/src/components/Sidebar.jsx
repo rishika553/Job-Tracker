@@ -52,9 +52,6 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
           <span className="font-bold text-white text-[15px] tracking-tight">
             CareerTrack
           </span>
-          <span className="text-[9px] font-extrabold text-slate-950 bg-primary-500 px-1.5 py-0.5 rounded-md">
-            Pro
-          </span>
         </div>
         {mobileMenuOpen && (
           <button 

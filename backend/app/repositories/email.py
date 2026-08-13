@@ -30,6 +30,16 @@ class EmailMessageRepository(BaseRepository[EmailMessage]):
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
+    async def get_by_account_id(self, account_id: uuid.UUID) -> List[EmailMessage]:
+        """Fetch all email messages belonging to a specific connected account."""
+        query = (
+            select(EmailMessage)
+            .where(EmailMessage.connected_account_id == account_id)
+            .order_by(EmailMessage.received_at.desc())
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
     async def update_ai_extraction(
         self, email_id: uuid.UUID, extracted_data: dict, status: str = "success"
     ) -> Optional[EmailMessage]:

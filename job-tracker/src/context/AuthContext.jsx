@@ -3,103 +3,110 @@ import { authApi } from '../services/authApi';
 
 const AuthContext = createContext(null);
 
-// Key used to hint that the user has an active session (cookie may exist).
-// This avoids a pointless /auth/refresh request on every cold load.
 const SESSION_HINT_KEY = 'has_session';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const clearSession = useCallback(() => {
     localStorage.removeItem('access_token');
     sessionStorage.removeItem(SESSION_HINT_KEY);
     setUser(null);
+    setIsAuthenticated(false);
   }, []);
 
   const fetchCurrentUser = useCallback(async () => {
-    const userData = await authApi.getMe();
-    setUser(userData);
-    setError(null);
-    return userData;
-  }, []);
+    try {
+      const userData = await authApi.getMe();
+      setUser(userData);
+      setIsAuthenticated(true);
+      return userData;
+    } catch (err) {
+      console.error('Failed to fetch user:', err);
+      clearSession();
+      throw err;
+    }
+  }, [clearSession]);
 
-  // Bootstrap auth state on mount — runs once
+  // Initialize auth session on mount
   useEffect(() => {
     let cancelled = false;
 
-    const initAuth = async () => {
+    const initializeAuth = async () => {
       try {
         const accessToken = localStorage.getItem('access_token');
         const hasSessionHint = sessionStorage.getItem(SESSION_HINT_KEY);
 
         if (accessToken) {
-          // We have a token — try to fetch the user directly
           await fetchCurrentUser();
         } else if (hasSessionHint) {
-          // We previously had a session; attempt a silent cookie-based refresh
           try {
             const session = await authApi.refreshToken();
             if (session?.access_token) {
               localStorage.setItem('access_token', session.access_token);
               await fetchCurrentUser();
             }
-          } catch {
-            // Cookie expired or invalid — clean up the hint
+          } catch (err) {
             sessionStorage.removeItem(SESSION_HINT_KEY);
+            clearSession();
           }
         }
-        // No token, no hint → unauthenticated, skip network call entirely
-      } catch {
+      } catch (err) {
+        console.error('Auth initialization error:', err);
         clearSession();
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    initAuth();
+    initializeAuth();
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchCurrentUser, clearSession]);
 
   const login = useCallback(async (email, password) => {
     setError(null);
-    setLoading(true);
     try {
       const data = await authApi.login(email, password);
       localStorage.setItem('access_token', data.access_token);
       sessionStorage.setItem(SESSION_HINT_KEY, '1');
-      const userData = await fetchCurrentUser();
-      return userData;
-    } finally {
-      setLoading(false);
+      await fetchCurrentUser();
+    } catch (err) {
+      setError(err.message || 'Login failed');
+      throw err;
     }
   }, [fetchCurrentUser]);
 
   const register = useCallback(async (userData) => {
     setError(null);
-    return authApi.register(userData);
+    try {
+      const result = await authApi.register(userData);
+      return result;
+    } catch (err) {
+      setError(err.message || 'Registration failed');
+      throw err;
+    }
   }, []);
 
-  const googleLogin = useCallback(async (idToken) => {
+  const googleLogin = useCallback(async () => {
     setError(null);
-    setLoading(true);
     try {
-      const data = await authApi.googleAuth(idToken);
-      localStorage.setItem('access_token', data.access_token);
-      sessionStorage.setItem(SESSION_HINT_KEY, '1');
       const userData = await fetchCurrentUser();
+      setIsAuthenticated(true);
       return userData;
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err.message || 'Google login failed');
+      throw err;
     }
   }, [fetchCurrentUser]);
 
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
-    } catch {
-      // Best-effort logout — clear client state regardless
+    } catch (err) {
+      console.error('Logout error:', err);
     } finally {
       clearSession();
     }
@@ -115,7 +122,7 @@ export const AuthProvider = ({ children }) => {
         register,
         googleLogin,
         logout,
-        isAuthenticated: !!user,
+        isAuthenticated,
       }}
     >
       {children}

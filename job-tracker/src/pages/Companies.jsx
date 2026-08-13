@@ -51,8 +51,9 @@ export default function Companies() {
   // Helper: Numeric Salary Parsing
   const getSalaryNumeric = (salaryStr) => {
     if (!salaryStr || salaryStr === "-") return 0;
-    const isHourly = salaryStr.toLowerCase().includes("hour") || salaryStr.toLowerCase().includes("hr") || salaryStr.includes("/");
-    const numbers = salaryStr.match(/\d+[\d,]*/g);
+    const str = String(salaryStr).toLowerCase();
+    const isHourly = str.includes("hour") || str.includes("hr") || str.includes("/");
+    const numbers = String(salaryStr).match(/\d+[\d,]*/g);
     if (!numbers || numbers.length === 0) return 0;
     let firstVal = parseInt(numbers[0].replace(/,/g, ""), 10);
     if (isHourly && firstVal < 500) {
@@ -66,14 +67,15 @@ export default function Companies() {
     const map = {};
 
     applications.forEach(app => {
-      const compName = app.company;
+      const compName = app.company || "Company";
+      const compLower = compName.toLowerCase();
       if (!map[compName]) {
         // Map common companies to realistic industries
         let ind = "Technology";
-        if (compName.toLowerCase().includes("stripe")) ind = "Fintech";
-        else if (compName.toLowerCase().includes("vercel")) ind = "DevTools / Cloud";
-        else if (compName.toLowerCase().includes("linear")) ind = "Product / SaaS";
-        else if (compName.toLowerCase().includes("google") || compName.toLowerCase().includes("microsoft") || compName.toLowerCase().includes("amazon")) ind = "Big Tech";
+        if (compLower.includes("stripe")) ind = "Fintech";
+        else if (compLower.includes("vercel")) ind = "DevTools / Cloud";
+        else if (compLower.includes("linear")) ind = "Product / SaaS";
+        else if (compLower.includes("google") || compLower.includes("microsoft") || compLower.includes("amazon")) ind = "Big Tech";
 
         map[compName] = {
           name: compName,
@@ -284,7 +286,7 @@ export default function Companies() {
                 <div className="flex items-start justify-between">
                   <div className="flex gap-3.5 items-start">
                     <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getGradBackground(comp.name)} text-white font-extrabold text-sm uppercase flex items-center justify-center shadow-3xs shrink-0`}>
-                      {comp.name[0]}
+                      {(comp.name || "?")[0]}
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-sm font-bold text-brand-900 group-hover:text-amber-600 transition-colors truncate">

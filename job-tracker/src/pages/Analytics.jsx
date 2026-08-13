@@ -541,7 +541,7 @@ export default function Analytics() {
                   <div key={idx} className="flex items-center justify-between py-1.5 border-b border-brand-50 last:border-0">
                     <div className="flex items-center gap-2.5">
                       <div className="w-6 h-6 rounded-md bg-brand-950 text-white font-extrabold text-[10px] uppercase flex items-center justify-center shadow-3xs">
-                        {c.company[0]}
+                        {(c.company || "?")[0]}
                       </div>
                       <span className="text-xs font-bold text-brand-900">{c.company}</span>
                     </div>

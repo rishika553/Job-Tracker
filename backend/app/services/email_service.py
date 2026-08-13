@@ -66,7 +66,6 @@ class ResendEmailProvider(BaseEmailProvider):
 
         return False
 
-
 class ConsoleEmailProvider(BaseEmailProvider):
     """Fallback provider for local development that logs email output without sending external requests."""
 
@@ -145,3 +144,4 @@ class EmailService:
 # Singleton instance helper
 def get_email_service() -> EmailService:
     return EmailService()
+

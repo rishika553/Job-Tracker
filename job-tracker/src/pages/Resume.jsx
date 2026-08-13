@@ -129,7 +129,6 @@ export default function Resume() {
       }
     } catch (err) {
       clearInterval(stageInterval);
-      console.error("ATS Analysis Error:", err);
       setErrorMsg("Failed to analyze resume. Please ensure the backend server is running.");
       setAnalysisResult(null);
     } finally {

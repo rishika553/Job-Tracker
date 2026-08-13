@@ -168,7 +168,7 @@ export default function Setting() {
             <form onSubmit={handleProfileSave} className="space-y-5">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-slate-900 border border-brand-200 flex items-center justify-center text-lg font-black text-amber-500 shadow-3xs">
-                  {profile.name[0]}
+                  {(profile.name || "?")[0]}
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-brand-850">Avatar Initials</h4>
@@ -267,7 +267,7 @@ export default function Setting() {
                 <div key={acc.key} className="flex items-start justify-between border border-brand-150 rounded-xl p-4 bg-brand-50/10">
                   <div className="flex gap-3 items-start min-w-0">
                     <div className={`w-8 h-8 rounded-lg ${acc.color} flex items-center justify-center font-black text-xs uppercase shrink-0`}>
-                      {acc.name[0]}
+                      {(acc.name || "?")[0]}
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-brand-950">{acc.name}</h4>
@@ -292,7 +292,7 @@ export default function Setting() {
           <div className="space-y-6">
             <div>
               <h3 className="text-sm font-bold text-brand-900">System Appearance</h3>
-              <p className="text-[11px] text-brand-450 mt-0.5">Customize theme options and layout densities for CareerTrack Pro.</p>
+              <p className="text-[11px] text-brand-450 mt-0.5">Customize theme options and layout densities for CareerTrack.</p>
             </div>
 
             <div className="space-y-5">
@@ -530,7 +530,7 @@ export default function Setting() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { id: "free", name: "Free Tier", desc: "Up to 50 active applications tracked dynamically." },
-                    { id: "pro", name: "CareerTrack Pro ($12/mo)", desc: "Unlimited tracks, Gmail sync, PDF scanner tools." }
+                    { id: "pro", name: "CareerTrack ($12/mo)", desc: "Unlimited tracks, Gmail sync, PDF scanner tools." }
                   ].map(pl => (
                     <div
                       key={pl.id}

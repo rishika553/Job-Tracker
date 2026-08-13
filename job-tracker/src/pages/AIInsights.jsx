@@ -46,8 +46,9 @@ export default function AIInsights() {
   // Dynamically generate suggestions based on active applications
   const suggestions = [];
   applications.slice(0, 3).forEach(app => {
+    const tags = Array.isArray(app.tags) ? app.tags : ["React", "TypeScript"];
     suggestions.push(
-      `${app.company} values keywords like ${app.tags.slice(0, 2).join(" and ")}. Incorporate them in your details to align with the ${app.role} role.`
+      `${app.company || "Target Company"} values keywords like ${tags.slice(0, 2).join(" and ")}. Incorporate them in your details to align with the ${app.role || app.title || "Developer"} role.`
     );
   });
   if (suggestions.length === 0) {
