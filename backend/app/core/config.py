@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     )
 
     PROJECT_NAME: str = "CareerTrack"
-    ENV: str = "development"
+    ENV: str = "production"
     API_V1_STR: str = "/api/v1"
 
     # Security

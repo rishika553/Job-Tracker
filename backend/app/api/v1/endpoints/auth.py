@@ -141,15 +141,16 @@ async def refresh_token(
     session = await auth_service.refresh_session(token)
 
     # Set the rotated refresh token as a secure HttpOnly cookie
+   
     response.set_cookie(
         key="refresh_token",
         value=session["refresh_token"],
         httponly=True,
-        secure=settings.ENV != "development",
-        samesite="lax",
+        secure=True,          # must be True when samesite="none" — browsers require this
+        samesite="none",      # required for cross-site cookies
         path=f"{settings.API_V1_STR}/auth",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
-    )
+)
 
     return session
 

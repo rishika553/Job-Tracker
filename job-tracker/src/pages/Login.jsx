@@ -129,8 +129,7 @@ export default function Login() {
       
       console.log('Google login successful, fetching user data...');
       
-      // Fetch user data and redirect
-      await googleLogin();
+    
       
       setMessage({ type: 'success', text: 'Google login successful! Redirecting...' });
       
