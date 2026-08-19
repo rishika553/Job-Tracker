@@ -1,4 +1,3 @@
-import os
 import re
 import json
 import logging
@@ -6,6 +5,8 @@ import io
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, status
 import httpx
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,9 @@ def clean_and_normalize_text(raw_text: str) -> str:
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     """Extract text from PDF using PyMuPDF (fitz) preferred, pdfplumber / pypdf fallback."""
     text = ""
-    # Strategy 1: PyMuPDF (fitz)
+    # Strategy 1: PyMuPDF
     try:
-        import fitz  # PyMuPDF
+        import pymupdf as fitz  # PyMuPDF (fitz alias deprecated)
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         pages_text = []
         for page in doc:
@@ -363,7 +364,7 @@ async def analyze_resume_ats(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not extract readable text from resume file. Please ensure document contains selectable text.")
 
     role_context = target_role or "Full Stack Developer"
-    grok_api_key = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    grok_api_key = settings.GROK_API_KEY
 
     if grok_api_key:
         try:
@@ -452,7 +453,7 @@ Return ONLY valid JSON matching this exact schema:
   "estimated_improvement": number
 }}
 """
-            api_url = os.getenv("GROK_API_URL", "https://api.x.ai/v1/chat/completions")
+            api_url = settings.GROK_API_URL
             async with httpx.AsyncClient(timeout=35.0) as client:
                 response = await client.post(
                     api_url,
@@ -461,7 +462,7 @@ Return ONLY valid JSON matching this exact schema:
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": os.getenv("GROK_MODEL", "grok-beta"),
+                        "model": settings.GROK_MODEL,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.1
                     }

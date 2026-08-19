@@ -41,31 +41,6 @@ async def mark_all_notifications_read(
 
 
 @router.put("/{id}/read", status_code=status.HTTP_200_OK)
-async def mark_notification_read(
-    id: uuid.UUID,
-    current_user: User = Depends(get_current_user),
-    db=Depends(get_db),
-) -> Any:
-    """Mark a specific notification as read."""
-    service = NotificationService(db)
-    success = await service.mark_read(notification_id=id, user_id=current_user.id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Notification not found.",
-        )
-    return {"status": "success", "message": "Notification marked as read."}
-
-
-@router.put("/read-all", status_code=status.HTTP_200_OK)
-async def mark_all_notifications_read(
-    current_user: User = Depends(get_current_user),
-    db=Depends(get_db),
-) -> Any:
-    """Mark all unread notifications as read."""
-    service = NotificationService(db)
-    count = await service.mark_all_read(user_id=current_user.id)
-    return {"status": "success", "updated_count": count}
 
 
 @router.delete("/{id}", status_code=status.HTTP_200_OK)

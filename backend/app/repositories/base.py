@@ -37,6 +37,7 @@ class BaseRepository(Generic[ModelType]):
         db_obj = self.model(**obj_data)
         self.db.add(db_obj)
         await self.db.flush()  # Flushes changes to get DB IDs/timestamps without committing
+        await self.db.refresh(db_obj)  # Re-fetch server-generated values (e.g. created_at, updated_at)
         return db_obj
 
     async def update(self, *, db_obj: ModelType, obj_in: Any) -> ModelType:
@@ -52,6 +53,7 @@ class BaseRepository(Generic[ModelType]):
 
         self.db.add(db_obj)
         await self.db.flush()
+        await self.db.refresh(db_obj)  # Re-fetch server-generated values (e.g. updated_at)
         return db_obj
 
     async def remove(self, *, id: Any) -> Optional[ModelType]:

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from app.db.session import SessionLocal
 from app.models.connected_gmail import ConnectedGmailAccount
 from app.models.email import EmailMessage
@@ -233,6 +234,9 @@ async def run_notification_reminders_pipeline() -> int:
         # 1. Upcoming Interview Reminders (in next 24 hours)
         query = (
             select(Interview)
+            .options(
+                joinedload(Interview.job_application).joinedload(JobApplication.company)
+            )
             .join(JobApplication, Interview.job_application_id == JobApplication.id)
             .where(
                 Interview.scheduled_at >= now,
@@ -240,7 +244,7 @@ async def run_notification_reminders_pipeline() -> int:
             )
         )
         result = await db.execute(query)
-        upcoming_interviews = list(result.scalars().all())
+        upcoming_interviews = list(result.scalars().unique().all())
 
         for item in upcoming_interviews:
             company_name = (
@@ -263,12 +267,16 @@ async def run_notification_reminders_pipeline() -> int:
 
         # 2. Follow-up Reminders (Applications applied > 14 days ago without updates)
         fourteen_days_ago = now - timedelta(days=14)
-        query_stagnant = select(JobApplication).where(
-            JobApplication.status == "applied",
-            JobApplication.applied_at <= fourteen_days_ago,
+        query_stagnant = (
+            select(JobApplication)
+            .options(joinedload(JobApplication.company))
+            .where(
+                JobApplication.status == "applied",
+                JobApplication.applied_at <= fourteen_days_ago,
+            )
         )
         res_stagnant = await db.execute(query_stagnant)
-        stagnant_apps = list(res_stagnant.scalars().all())
+        stagnant_apps = list(res_stagnant.scalars().unique().all())
 
         for app_item in stagnant_apps:
             company_name = (

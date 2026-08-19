@@ -27,7 +27,7 @@ export default function Login() {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [errors, setErrors] = useState({});
   
-  const { login, register, isAuthenticated, loading } = useAuth();
+  const { login, register, googleLogin, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
@@ -100,49 +100,32 @@ export default function Login() {
         throw new Error('No credential received from Google');
       }
       
-      console.log('Google login attempt with token:', credentialResponse.credential.substring(0, 50) + '...');
-      
       const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
       
-      // Send the ID token to your backend
+      // Send the ID token to the backend to get an access token
       const response = await fetch(`${apiUrl}/auth/google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          refresh_token: credentialResponse.credential,
-        }),
+        body: JSON.stringify({ refresh_token: credentialResponse.credential }),
       });
 
       const data = await response.json();
-      console.log('Backend response:', { status: response.status, data });
 
       if (!response.ok) {
         throw new Error(data.detail || `Login failed: ${response.status}`);
       }
       
-      // Store token and update auth context
+      // Store token then fetch user — this updates isAuthenticated in context
       localStorage.setItem('access_token', data.access_token);
       sessionStorage.setItem('has_session', '1');
+      await googleLogin();  // fetches /me and sets isAuthenticated = true
       
-      console.log('Google login successful, fetching user data...');
-      
-    
-      
-      setMessage({ type: 'success', text: 'Google login successful! Redirecting...' });
-      
-      // Small delay to show success message before redirect
-      setTimeout(() => {
-        navigate('/');
-      }, 500);
-      
+      // navigate() is triggered by the useEffect watching isAuthenticated
     } catch (error) {
       console.error('Google login error:', error);
       
       let errorText = 'Google login failed';
-      
       if (error.message.includes('No credential')) {
         errorText = 'Google authentication cancelled or failed to load. Please try again.';
       } else if (error.message.includes('audience')) {
@@ -155,10 +138,7 @@ export default function Login() {
         errorText = error.message || 'Unknown error occurred';
       }
       
-      setMessage({ 
-        type: 'error', 
-        text: errorText
-      });
+      setMessage({ type: 'error', text: errorText });
     } finally {
       setSubmitting(false);
     }

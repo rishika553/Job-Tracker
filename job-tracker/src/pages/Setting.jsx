@@ -16,12 +16,15 @@ import {
   ToggleLeft,
   ToggleRight,
   Globe,
-  LogOut
+  LogOut,
+  Loader2,
+  Mail,
+  Unlink
 } from "lucide-react";
 
 export default function Setting() {
   const { user, logout } = useAuth();
-  const { clearHunt } = useJobTracker();
+  const { clearHunt, gmailStatus, connectGmail, toggleGmailConnection } = useJobTracker();
   const [activeTab, setActiveTab] = useState("profile");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -256,31 +259,122 @@ export default function Setting() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              {/* Google OAuth — always connected if logged in */}
+              <div className="flex items-start justify-between border border-brand-150 rounded-xl p-4 bg-brand-50/10">
+                <div className="flex gap-3 items-start min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 border border-red-100 text-red-600 flex items-center justify-center font-black text-xs uppercase shrink-0">G</div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-brand-950">Google</h4>
+                    <p className="text-[10px] text-brand-450 leading-normal mt-0.5">Authentication via Google OAuth.</p>
+                    {user?.google_id && (
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                        ● Connected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ToggleRight size={26} className="text-emerald-500 ml-2 shrink-0" />
+              </div>
+
+              {/* Gmail API — real connect/disconnect */}
+              <div className="flex items-start justify-between border border-brand-150 rounded-xl p-4 bg-brand-50/10">
+                <div className="flex gap-3 items-start min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                    <Mail size={14} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-brand-950">Gmail Inbox Sync</h4>
+                    <p className="text-[10px] text-brand-450 leading-normal mt-0.5 truncate">
+                      {gmailStatus.connected
+                        ? `Syncing: ${gmailStatus.account}`
+                        : "Scan inbox for job emails & auto-track applications."}
+                    </p>
+                    {gmailStatus.connected ? (
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                        ● Connected
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-brand-400 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                        ○ Not connected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={gmailStatus.connected ? toggleGmailConnection : connectGmail}
+                  disabled={gmailStatus.isScanning}
+                  className="ml-2 shrink-0 cursor-pointer"
+                  title={gmailStatus.connected ? "Disconnect Gmail" : "Connect Gmail"}
+                >
+                  {gmailStatus.isScanning ? (
+                    <Loader2 size={20} className="animate-spin text-brand-400" />
+                  ) : gmailStatus.connected ? (
+                    <ToggleRight size={26} className="text-emerald-500" />
+                  ) : (
+                    <ToggleLeft size={26} className="text-brand-400" />
+                  )}
+                </button>
+              </div>
+
+              {/* Connect Gmail button — shown when disconnected */}
+              {!gmailStatus.connected && (
+                <div className="sm:col-span-2">
+                  <button
+                    onClick={connectGmail}
+                    disabled={gmailStatus.isScanning}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-950 hover:bg-brand-900 disabled:opacity-60 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  >
+                    {gmailStatus.isScanning ? (
+                      <><Loader2 size={14} className="animate-spin" /><span>Connecting to Google...</span></>
+                    ) : (
+                      <><Mail size={14} /><span>Connect Gmail to Sync Job Emails</span></>
+                    )}
+                  </button>
+                  <p className="text-[10px] text-brand-400 text-center mt-2">
+                    Opens Google OAuth consent screen. Grants read-only inbox access.
+                  </p>
+                </div>
+              )}
+
+              {/* Disconnect button — shown when connected */}
+              {gmailStatus.connected && (
+                <div className="sm:col-span-2 p-4 border border-rose-200/80 rounded-xl bg-rose-50/20 flex items-center justify-between gap-4">
+                  <div>
+                    <h5 className="text-xs font-bold text-brand-950">Disconnect Gmail</h5>
+                    <p className="text-[10px] text-brand-500 mt-0.5">
+                      Remove Gmail sync access. You can reconnect at any time.
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleGmailConnection}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold transition cursor-pointer shrink-0"
+                  >
+                    <Unlink size={13} />
+                    <span>Disconnect</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Other placeholder accounts */}
               {[
-                { key: "google", name: "Google", desc: "Authentications, backups, Google Drive exports.", color: "bg-red-50 border-red-100 text-red-650" },
-                { key: "gmail", name: "Gmail API", desc: "Scan folders for confirmation letters and timelines.", color: "bg-orange-50 border-orange-100 text-orange-650" },
                 { key: "linkedin", name: "LinkedIn", desc: "Sync direct applications and recruiter profiles.", color: "bg-blue-50 border-blue-100 text-blue-650" },
                 { key: "indeed", name: "Indeed Connect", desc: "Track application updates and platform stages.", color: "bg-sky-50 border-sky-100 text-sky-650" },
                 { key: "wellfound", name: "Wellfound (AngelList)", desc: "Track startup applications and team contacts.", color: "bg-stone-50 border-stone-100 text-brand-950" },
                 { key: "naukri", name: "Naukri", desc: "Scan job alerts and recruiter notification panels.", color: "bg-indigo-50 border-indigo-100 text-indigo-650" }
               ].map(acc => (
-                <div key={acc.key} className="flex items-start justify-between border border-brand-150 rounded-xl p-4 bg-brand-50/10">
+                <div key={acc.key} className="flex items-start justify-between border border-brand-150 rounded-xl p-4 bg-brand-50/10 opacity-60">
                   <div className="flex gap-3 items-start min-w-0">
                     <div className={`w-8 h-8 rounded-lg ${acc.color} flex items-center justify-center font-black text-xs uppercase shrink-0`}>
-                      {(acc.name || "?")[0]}
+                      {acc.name[0]}
                     </div>
                     <div className="min-w-0">
                       <h4 className="text-xs font-bold text-brand-950">{acc.name}</h4>
                       <p className="text-[10px] text-brand-450 leading-normal mt-0.5 truncate">{acc.desc}</p>
+                      <span className="text-[9px] font-bold text-brand-300 bg-brand-50 border border-brand-100 px-1.5 py-0.5 rounded mt-1 inline-block">Coming soon</span>
                     </div>
                   </div>
-                  <button onClick={() => toggleAccount(acc.key)} className="cursor-pointer text-brand-400 hover:text-brand-600 transition ml-2 shrink-0">
-                    {connectedAccounts[acc.key] ? (
-                      <ToggleRight size={26} className="text-emerald-500" />
-                    ) : (
-                      <ToggleLeft size={26} />
-                    )}
-                  </button>
+                  <ToggleLeft size={26} className="text-brand-300 ml-2 shrink-0" />
                 </div>
               ))}
             </div>

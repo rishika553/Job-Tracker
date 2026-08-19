@@ -31,6 +31,26 @@ export default function Calendar() {
   const [selectedDateStr, setSelectedDateStr] = useState(new Date().toISOString().split("T")[0]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
+  // Derived calendar values — dynamic, based on currentDate
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth(); // 0-indexed
+  const monthLabel = currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const startDayOffset = new Date(currentYear, currentMonth, 1).getDay(); // 0=Sun
+  const padNum = (n) => (n < 10 ? `0${n}` : `${n}`);
+
+  const calendarCells = [];
+  for (let i = 0; i < startDayOffset; i++) calendarCells.push({ day: null, dateStr: null });
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarCells.push({ day: d, dateStr: `${currentYear}-${padNum(currentMonth + 1)}-${padNum(d)}` });
+  }
+  while (calendarCells.length < 42) calendarCells.push({ day: null, dateStr: null });
+
+  const goToPrevMonth = () => setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  const goToNextMonth = () => setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
+
   const fetchEvents = async () => {
     setLoading(true);
     setError(null);
@@ -52,10 +72,10 @@ export default function Calendar() {
   const [formCompany, setFormCompany] = useState("");
   const [formRole, setFormRole] = useState("");
   const [formType, setFormType] = useState("interview"); // "interview", "assessment", "followup", "meeting"
-  const [formDate, setFormDate] = useState("2026-07-15");
+  const [formDate, setFormDate] = useState(todayStr);
   const [formTime, setFormTime] = useState("14:00");
   const [formInterviewer, setFormInterviewer] = useState("");
-  const [formNotes, setFormNotes] = useState("");
+  const [formNotes, setFormNotes]= useState("");
 
   const totalApps = applications.length;
 
@@ -132,34 +152,12 @@ export default function Calendar() {
 
   const allEvents = getParsedEvents();
 
-  // 2. Large Calendar Month Calculations (July 2026 Grid)
-  // July 2026 starts on a Wednesday (index 3 if Sunday=0) and has 31 days.
-  const daysInJuly = 31;
-  const startDayOffset = 3; // Wednesday offset
+  // 3. Today's Events
+  const todayEvents = allEvents.filter(e => e.date === todayStr);
 
-  // Build grid blocks
-  const calendarCells = [];
-  for (let i = 0; i < startDayOffset; i++) {
-    calendarCells.push({ day: null, dateStr: null });
-  }
-  for (let d = 1; d <= daysInJuly; d++) {
-    const dayStr = d < 10 ? `0${d}` : `${d}`;
-    calendarCells.push({
-      day: d,
-      dateStr: `2026-07-${dayStr}`
-    });
-  }
-  // Pad grid to 42 cells (6 full rows)
-  while (calendarCells.length < 42) {
-    calendarCells.push({ day: null, dateStr: null });
-  }
-
-  // 3. Today's Events (July 15, 2026)
-  const todayEvents = allEvents.filter(e => e.date === "2026-07-15");
-
-  // 4. Upcoming schedule (Any event on or after July 15, sorted chronologically)
+  // 4. Upcoming schedule (Any event on or after today, sorted chronologically)
   const upcomingEvents = allEvents
-    .filter(e => e.date && e.date >= "2026-07-15")
+    .filter(e => e.date && e.date >= todayStr)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 5);
 
@@ -258,7 +256,7 @@ export default function Calendar() {
 
         <button
           onClick={() => {
-            setFormDate("2026-07-15");
+            setFormDate(todayStr);
             setIsScheduleModalOpen(true);
           }}
           className="flex items-center gap-1.5 px-4 py-2.5 bg-brand-950 hover:bg-brand-900 border border-brand-900 text-white rounded-xl text-xs font-bold shadow-sm transition hover-lift cursor-pointer"
@@ -277,10 +275,10 @@ export default function Calendar() {
           {/* Mini Monthly Overview */}
           <div className="bg-white border border-brand-200/60 rounded-2xl p-5 shadow-premium">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-extrabold text-brand-850 uppercase tracking-widest pl-1">July 2026</span>
+              <span className="text-xs font-extrabold text-brand-850 uppercase tracking-widest pl-1">{monthLabel}</span>
               <div className="flex gap-1">
-                <button className="p-1 hover:bg-brand-50 rounded text-brand-400"><ChevronLeft size={14} /></button>
-                <button className="p-1 hover:bg-brand-50 rounded text-brand-400"><ChevronRight size={14} /></button>
+                <button onClick={goToPrevMonth} className="p-1 hover:bg-brand-50 rounded text-brand-400"><ChevronLeft size={14} /></button>
+                <button onClick={goToNextMonth} className="p-1 hover:bg-brand-50 rounded text-brand-400"><ChevronRight size={14} /></button>
               </div>
             </div>
 
@@ -291,6 +289,7 @@ export default function Calendar() {
               ))}
               {calendarCells.slice(0, 35).map((cell, idx) => {
                 const isSelected = cell.dateStr === selectedDateStr;
+                const isToday = cell.dateStr === todayStr;
                 const hasEvents = cell.dateStr && allEvents.some(e => e.date === cell.dateStr);
 
                 return (
@@ -301,6 +300,7 @@ export default function Calendar() {
                     className={`h-6 w-6 mx-auto rounded-lg flex items-center justify-center font-semibold transition relative ${
                       !cell.day ? "opacity-0" :
                       isSelected ? "bg-brand-950 text-white font-bold" :
+                      isToday ? "ring-2 ring-amber-400 text-brand-900 font-bold" :
                       "text-brand-700 hover:bg-brand-50"
                     }`}
                   >
@@ -336,7 +336,7 @@ export default function Calendar() {
                 ))
               ) : (
                 <div className="text-center text-xs text-brand-400 py-6">
-                  No events scheduled for today (July 15).
+                  No events scheduled for today.
                 </div>
               )}
             </div>
@@ -353,7 +353,7 @@ export default function Calendar() {
               <div className="w-8 h-8 rounded-lg bg-brand-50 border border-brand-200/50 flex items-center justify-center text-brand-850">
                 <CalendarIcon size={16} />
               </div>
-              <h2 className="text-sm font-black text-brand-950 tracking-tight uppercase">July 2026</h2>
+              <h2 className="text-sm font-black text-brand-950 tracking-tight uppercase">{monthLabel}</h2>
             </div>
             
             <div className="flex border border-brand-200 bg-white rounded-xl p-0.5 shadow-2xs text-[11px] font-bold text-brand-600">
@@ -394,7 +394,7 @@ export default function Calendar() {
                     {/* Day number */}
                     {cell.day && (
                       <span className={`inline-block w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px] ${
-                        cell.day === 15 ? "bg-brand-950 text-white shadow-3xs" : "text-brand-700"
+                        cell.dateStr === todayStr ? "bg-brand-950 text-white shadow-3xs" : "text-brand-700"
                       }`}>
                         {cell.day}
                       </span>

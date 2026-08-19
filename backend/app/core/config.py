@@ -1,5 +1,4 @@
 import json
-import os
 from typing import List
 from pydantic import BeforeValidator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,20 +32,28 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "careertrack"
 
     # JSearch / RapidAPI Key Configuration
-    RAPIDAPI_KEY: str = os.getenv("RAPIDAPI_KEY", os.getenv("JSEARCH_API_KEY", ""))
-    JSEARCH_API_KEY: str = os.getenv("JSEARCH_API_KEY", os.getenv("RAPIDAPI_KEY", ""))
-
+    RAPIDAPI_KEY: str = ""
+    JSEARCH_API_KEY: str = ""
 
     # Google OAuth Credentials
-    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
-    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/auth/google/callback"
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/v1/gmail/callback"
+
+    # Grok / AI API
+    GROK_API_KEY: str = ""
+    GROK_API_URL: str = "https://api.x.ai/v1/chat/completions"
+    GROK_MODEL: str = "grok-beta"
+
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
 
     # Email Settings
-    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "resend")
-    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
-    FROM_EMAIL: str = os.getenv("FROM_EMAIL", "noreply@aijobtracker.com")
-    APP_URL: str = os.getenv("APP_URL", "http://localhost:5173")
+    EMAIL_PROVIDER: str = "resend"
+    RESEND_API_KEY: str = ""
+    FROM_EMAIL: str = "noreply@aijobtracker.com"
+    APP_URL: str = "http://localhost:5173"
 
     # CORS Origins (JSON list format)
     BACKEND_CORS_ORIGINS: Annotated[

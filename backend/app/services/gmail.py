@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional, Protocol
 import httpx
 from urllib.parse import urlencode
 import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.http_client import get_http_client

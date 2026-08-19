@@ -74,7 +74,25 @@ async def list_connected_accounts(
     ]
 
 
-@router.get("/accounts/{account_id}/emails")
+@router.delete("/accounts/{account_id}", status_code=status.HTTP_200_OK)
+async def disconnect_gmail_account(
+    account_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db=Depends(get_db),
+) -> Any:
+    """Disconnect (deactivate) a connected Gmail account."""
+    repo = ConnectedGmailRepository(db)
+    account = await repo.get(account_id)
+    if not account or account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Connected Gmail account not found.",
+        )
+    await repo.update(db_obj=account, obj_in={"is_active": False})
+    await db.commit()
+    return {"status": "success", "message": f"Gmail account {account.email} disconnected."}
+
+
 async def fetch_recent_emails(
     account_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

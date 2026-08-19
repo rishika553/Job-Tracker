@@ -151,6 +151,41 @@ class JobSearchService:
             except Exception as err:
                 logger.warning(f"Jobicy API error: {err}")
 
+        # Provider 3: Arbeitnow (European + remote jobs, no key needed)
+        if len(normalized_results) < 8:
+            try:
+                arbeitnow_url = "https://www.arbeitnow.com/api/job-board-api"
+                resp = await client.get(arbeitnow_url, timeout=7.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_jobs = data.get("data", [])
+                    for job in raw_jobs:
+                        title = job.get("title", "")
+                        if query.lower() in title.lower() or any(
+                            q in title.lower() for q in query.lower().split()
+                        ):
+                            normalized_results.append(
+                                NormalizedJob(
+                                    id=f"arbeitnow-{job.get('slug', '')}",
+                                    title=title,
+                                    company=job.get("company_name", "Company"),
+                                    location=job.get("location", "Remote") or "Remote",
+                                    employment_type="Full Time",
+                                    salary="Not specified",
+                                    description=job.get("description") or "See full description on job page.",
+                                    apply_url=job.get("url") or "https://www.arbeitnow.com",
+                                    posted_at=job.get("created_at", "Recently"),
+                                    source="Arbeitnow",
+                                    company_logo=None,
+                                    skills=job.get("tags", [])[:8],
+                                    responsibilities=[],
+                                    benefits=[],
+                                    ai_match_score=None,
+                                )
+                            )
+            except Exception as err:
+                logger.warning(f"Arbeitnow API error: {err}")
+
         return normalized_results
 
     def _normalize_jsearch_job(self, job: Dict[str, Any]) -> NormalizedJob:
