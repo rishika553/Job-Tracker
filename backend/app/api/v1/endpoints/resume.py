@@ -368,6 +368,25 @@ async def analyze_resume_ats(
 
     if grok_api_key:
         try:
+            api_url = settings.GROK_API_URL
+            model = settings.GROK_MODEL
+            if grok_api_key.startswith("gsk_"):
+                logger.info("Groq API key detected (gsk_). Routing request to Groq OpenAI-compatible endpoint.")
+                api_url = "https://api.groq.com/openai/v1/chat/completions"
+                available_models = []
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        models_res = await client.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {grok_api_key}"})
+                        if models_res.status_code == 200:
+                            available_models = [m["id"] for m in models_res.json().get("data", [])]
+                except Exception as ex:
+                    logger.warning(f"Failed to fetch Groq models dynamically: {ex}")
+                
+                preferences = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "groq/compound-mini", "openai/gpt-oss-20b", "llama3-8b-8192"]
+                model = next((m for m in preferences if m in available_models), "llama-3.3-70b-versatile")
+                logger.info(f"Selected Groq model for analysis: {model}")
+
+
             prompt = f"""
 You are an expert ATS (Applicant Tracking System) resume reviewer.
 
@@ -453,7 +472,6 @@ Return ONLY valid JSON matching this exact schema:
   "estimated_improvement": number
 }}
 """
-            api_url = settings.GROK_API_URL
             async with httpx.AsyncClient(timeout=35.0) as client:
                 response = await client.post(
                     api_url,
@@ -462,7 +480,7 @@ Return ONLY valid JSON matching this exact schema:
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": settings.GROK_MODEL,
+                        "model": model,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.1
                     }
